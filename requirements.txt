@@ -1,0 +1,6 @@
+Flask
+Pillow
+favicon
+feedparser
+pyyaml
+waitress

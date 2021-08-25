@@ -1,0 +1,13 @@
+version: '3.7'
+
+services:
+  app:
+    restart: always
+    build:
+      context: '.'
+    environment:
+            TZ: 'Europe/Berlin'
+    ports:
+      - '127.0.0.1:5000:5000'
+    volumes:
+      - './:/app'

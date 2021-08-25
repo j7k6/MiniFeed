@@ -1,0 +1,7 @@
+feeds:
+  tech:
+    - https://news.ycombinator.com/rss
+    - https://9to5mac.com/feed/
+  news:
+    - https://www.spiegel.de/schlagzeilen/tops/index.rss
+    - https://feeds.npr.org/1001/rss.xml
