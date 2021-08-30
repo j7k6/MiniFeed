@@ -1,0 +1,296 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MiniFeed</title>
+  <style type="text/css">
+    * {
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: sans-serif;
+      line-height: 1.6;
+      background: #f4f4f4;
+      color: #444;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    } 
+
+    .wrapper:after {
+      display: table;
+      content: '';
+      clear: both;
+    }
+
+    .wrapper > div {
+      float: left;
+      overflow: hidden;
+    }
+
+    .feeds {
+      width: calc(25vw - 2rem);
+      min-width: calc(300px - 2rem);
+      margin: 2rem;
+      margin-right: 0;
+    }
+
+    .feeds a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .feeds > div {
+      padding: 1rem;
+      background: White;
+    }
+
+    .feeds > div.toggle {
+      display: none;
+    }
+
+    .feeds > div.group h3.active {
+      text-decoration: underline;
+    }
+
+    .feeds ul {
+      list-style-type: none;
+    }
+
+    .feeds .toggle h3 {
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .feeds .toggle h3 span {
+      color: #aaa;
+    }
+
+    .feeds .toggle h3 a {
+      display: inline-block;
+      padding-right: 2rem;
+    }
+
+    .feeds ul li {
+      line-height: 2;
+    }
+
+    .feeds ul li.active {
+      font-weight: bold;
+      text-decoration: underline;
+    }
+
+    .items {
+      width: calc(75vw - 4rem);
+      max-width: calc(100vw - 300px - 4rem);
+      margin: 2rem;
+    }
+
+    .items article {
+      overflow: hidden;
+      margin: 0 auto 2rem auto;
+      background: White;
+      padding: 1rem;
+    }
+
+    .items article.new {
+      animation: fadein 2s;
+    }
+
+    @keyframes fadein {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+    }
+
+    .items article > * {
+      margin: .25rem;
+    }
+
+    .items article p {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .items article h4 a {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .items article h6 {
+      font-weight: normal;
+      color: #aaa;
+    }
+
+    .items article h5, .feeds ul li, .feeds .toggle h3 span {
+      background-repeat: no-repeat;
+      background-position: center left;
+      padding-left: 20px;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .feeds ul li {
+      padding-left: 20px !important;
+    }
+
+    @media screen and (max-width: 800px) {
+      .wrapper > div {
+          width: calc(100vw - 4rem);
+          min-width: calc(100vw - 4rem);
+          max-width: calc(100vw - 4rem);
+      }
+
+      .feeds, .items {
+        margin: 2rem !important;
+      }
+
+      .feeds {
+        margin-bottom: 0 !important;
+      }
+
+      .feeds > div.group {
+        display: none;
+      }
+
+      .feeds > div.toggle {
+        display: block;
+      }
+
+      .feeds > div.show {
+        display: block !important;
+      }
+    }
+
+    {% for feed in feeds -%}
+      .feed_{{feed.id}} {
+        {% if feed.favicon == '' %}
+        padding-left: 0 !important;
+        {% else %}
+        background-image: url('data:image/png;base64, {{feed.favicon}}');
+        {% endif %}
+      }
+    {% endfor %}
+  </style>
+  <script>
+    var lastTimestamp = 0;
+    var feeds = {{feeds|tojson|safe}};
+    var feedId = '{{feed_id}}';
+    var groupId = '{{group_id}}';
+    var showFeeds = false;
+
+    function toggleFeeds() {
+      console.log(showFeeds)
+
+      if (showFeeds) {
+        Array.from(document.querySelectorAll('.feeds > div.group')).forEach((el) => el.classList.remove('show'));
+        showFeeds = false;
+      } else {
+        Array.from(document.querySelectorAll('.feeds > div.group')).forEach((el) => el.classList.add('show'));
+        showFeeds = true;
+      }
+    }
+
+    function getItems(since) {
+      var fetchUrl = `/api/getItems?since=${since}`
+
+      if (feedId !== '') {
+        groupId = '';
+        fetchUrl = `${fetchUrl}&feed_id=${feedId}`
+      }
+
+      if (groupId !== '') {
+        feedId = '';
+        fetchUrl = `${fetchUrl}&group_id=${groupId}`
+      }
+
+      Array.from(document.querySelectorAll('article')).forEach((el) => el.classList.remove('new'));
+
+      fetch(fetchUrl).then(function(res) {
+        return res.json();
+      }).then(function(data) {
+        if (data.length > 0) {
+          console.log(data.length);
+          lastTimestamp = data[0].added;
+
+          data.sort((a, b) => (a.published > b.published) ? 1 : -1)
+
+          data.forEach(function(item) {
+            var feed = feeds.find(f => f.id === item.feed)
+
+            var published = new Intl.DateTimeFormat('en-US', {
+              year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric', hour12: false
+            }).format(new Date(item.published*1000));
+
+            var itemsHtml = document.querySelector('.items');
+            var itemHtml = `
+                  <article class="new">\
+                    <h5 class="feed_${feed.id}">${feed.title}:</h5>\
+                    <h4><a href="${item.link}" target="_blank">${item.title}</a></h4>\
+                    <h6>${published}</h6>\
+                    <p>${item.description}</p>\
+                  </article>`;
+
+            itemsHtml.innerHTML = itemHtml + itemsHtml.innerHTML;
+          });
+        }
+      }).catch(function(err) {
+        console.log(err)
+      });
+    }
+
+    getItems(0);
+
+    setInterval(function() { 
+      getItems(lastTimestamp); 
+    }, 10000);
+  </script>
+</head>
+
+<body>
+  <div class="wrapper">
+    <div class="feeds">
+      <div class="toggle">
+        <h3 onclick="toggleFeeds();">
+          <a>...</a>
+
+          {% if feed_id is defined %}
+          <span class="feed feed_{{feed_id}}">
+          {% for feed in feeds %}
+            {% if feed.id == feed_id %}{{feed.title}}{% endif %}
+          {% endfor%}
+          </span>
+          {% endif %}
+          {% if group_id is defined %}
+          <span class="group">{{group_id}}</span>
+          {% endif %}
+        </h3>
+      </div>
+      <div class="group all"><h3{% if feed_id is not defined and group_id is not defined %} class="active"{% endif %}><a href="/">all</a></h3></div>
+      {% for group in groups %}
+        <div class="group group_{{group}}">
+          <h3{% if group == group_id %} class="active"{% endif %}><a href="/group/{{group}}">{{group}}</a></h3>
+          <ul class="group_{{group_id}}">
+          {% for feed in feeds %}
+            {% if feed.group_id == group %}
+            <li class="feed_{{feed.id}}{% if feed.id == feed_id %} active{% endif %}"><a href="/feed/{{feed.id}}">{{feed.title}}</a></li>
+            {% endif %}
+          {% endfor %}
+          </ul>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="items"></div>
+  </div>
+</body>
+</html>

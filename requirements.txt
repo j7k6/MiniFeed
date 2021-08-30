@@ -3,4 +3,5 @@ Pillow
 favicon
 feedparser
 pyyaml
+tldextract
 waitress

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 from PIL import Image
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, render_template
 from io import BytesIO
 from multiprocessing import Pool, Process
+from urllib.parse import urlparse
 from waitress import serve
 import base64
 import datetime
@@ -16,24 +17,31 @@ import re
 import requests
 import sqlite3
 import time
+import tldextract
 import yaml
 
 
 db = sqlite3.connect("minifeed.db", check_same_thread=False, timeout=10)
 db.row_factory = sqlite3.Row
 
-api = Flask(__name__,  static_folder="public")
+app = Flask(__name__)
+
+# num_procs = os.cpu_count()-1
+num_procs = 8
 
 
-def get_items(feed_id=None, limit=100, offset=0, since=0):
+def get_items(feed_id=None, limit=100, offset=0, since=0, group_id=None):
     global db
 
     cur = db.cursor()
 
-    if feed_id is None:
-        cur.execute("SELECT * FROM items WHERE added > ? AND link NOT IN (SELECT link FROM items WHERE added > ? ORDER BY added DESC LIMIT ?) ORDER BY added DESC LIMIT ?", (since, since, offset, limit))
+    if group_id is None:
+        if feed_id is None:
+            cur.execute("SELECT * FROM items WHERE added > ? AND link NOT IN (SELECT link FROM items WHERE added > ? ORDER BY added DESC LIMIT ?) ORDER BY added DESC LIMIT ?", (since, since, offset, limit))
+        else:
+            cur.execute("SELECT * FROM items WHERE feed=? AND added > ? AND link NOT IN (SELECT link FROM items WHERE feed=? AND added > ? ORDER BY added DESC LIMIT ?) ORDER BY added DESC LIMIT ?", (feed_id, since, feed_id, since, offset, limit))
     else:
-        cur.execute("SELECT * FROM items WHERE feed=? AND added > ? AND link NOT IN (SELECT link FROM items WHERE feed=? AND added > ? ORDER BY added DESC LIMIT ?) ORDER BY added DESC LIMIT ?", (feed_id, since, feed_id, since, offset, limit))
+        cur.execute("SELECT * FROM items WHERE added > ? AND feed IN (SELECT id FROM feeds WHERE group_id=?) AND link NOT IN (SELECT link FROM items WHERE added > ? AND feed IN (SELECT id FROM feeds WHERE group_id=?) ORDER BY added DESC LIMIT ?) ORDER BY added DESC LIMIT ?", (since, group_id, since, group_id, offset, limit))
 
     rows = [dict(row) for row in cur.fetchall()]
 
@@ -52,16 +60,27 @@ def get_feeds():
 
 
 def fetch_favicon(url):
+    uri = urlparse(url)
+    uri_extracted = tldextract.extract(url)
+    favicon_url = None
+
     try:
         favicons = favicon.get(url)
+
+        if len(favicons) == 0:
+            favicons = favicon.get(f"{uri.scheme}://{uri.netloc}")
+
+        if len(favicons) == 0:
+            favicons = favicon.get(f"{uri.scheme}://{uri_extracted.domain}.{uri_extracted.suffix}")
 
         if len(favicons) > 0:
             for icon in favicons:
                 if icon.width == icon.height:
                     favicon_url = icon.url
                     break
-        else:
-            favicon_url = f"{url}/favicon.ico"
+
+        if favicon_url is None:
+            favicon_url = f"{uri.scheme}://{uri_extracted.domain}.{uri_extracted.suffix}/favicon.ico"
 
         req = requests.get(favicon_url)
         img = Image.open(BytesIO(req.content))
@@ -77,7 +96,7 @@ def fetch_favicon(url):
     return favicon_base64
 
 
-def fetch_feed_info(feed_url, feed_cat):
+def fetch_feed_info(feed_url, group_id):
     global db
 
     feed_id = hashlib.md5(feed_url.encode()).hexdigest()
@@ -92,10 +111,10 @@ def fetch_feed_info(feed_url, feed_cat):
     favicon_base64 = fetch_favicon(feed_parsed.feed.link)
     
     try:
-        db.execute("INSERT INTO feeds (id, url, title, cat, favicon) VALUES (?, ?, ?, ?, ?)", (feed_id, feed_url, feed_title, feed_cat, favicon_base64))
+        db.execute("INSERT INTO feeds (id, url, title, group_id, favicon) VALUES (?, ?, ?, ?, ?)", (feed_id, feed_url, feed_title, group_id, favicon_base64))
         print(f"Added '{feed_title}'")
     except sqlite3.IntegrityError as e:
-        db.execute("UPDATE feeds SET title=?, cat=?, favicon=? WHERE id=?", (feed_title, feed_cat, favicon_base64, feed_id))
+        db.execute("UPDATE feeds SET title=?, group_id=?, favicon=? WHERE id=?", (feed_title, group_id, favicon_base64, feed_id))
         print(f"Updated '{feed_title}'")
     finally:
         db.commit()
@@ -123,13 +142,16 @@ def fetch_feed_items(feed_url):
         
         try:
             item_published = time.strftime('%s', item.published_parsed)
-        except TypeError as e:
+        except AttributeError as e:
             item_published = item_added
 
         try:
             item_description = re.sub("<[^<]+?>", "", item.description)
         except AttributeError as e:
-            item_description = ""
+            try:
+                item_description = item.title
+            except AttributeError as e:
+                item_description = ""
 
         try:
             db.execute("INSERT INTO items (id, link, title, description, published, added, feed) VALUES (?, ?, ?, ?, ?, ?, ?)", (item_id, item.link, item.title, item_description, item_published, item_added, feed_id))
@@ -179,8 +201,8 @@ def update_task(feeds, update_interval):
     while True:
         print("Updating Feeds...")
 
-        # Pool(processes=os.cpu_count()-1).map(fetch_feed_items, feeds)
-        Pool(processes=len(feeds)).map(fetch_feed_items, feeds)
+        Pool(processes=num_procs).map(fetch_feed_items, feeds)
+        # Pool(processes=len(feeds)).map(fetch_feed_items, feeds)
 
         time.sleep(update_interval)
 
@@ -197,7 +219,7 @@ def cleanup_task(feeds, cleanup_interval, retention):
 if __name__ == "__main__":
     try:
         db.execute("CREATE TABLE maintenance (key TEXT UNIQUE PRIMARY KEY, value TEXT)")
-        db.execute("CREATE TABLE feeds (id TEXT UNIQUE PRIMARY KEY, url TEXT, title TEXT, cat TEXT, favicon TEXT)")
+        db.execute("CREATE TABLE feeds (id TEXT UNIQUE PRIMARY KEY, url TEXT, title TEXT, group_id TEXT, favicon TEXT)")
         db.execute("CREATE TABLE items (id TEXT UNIQUE PRIMARY KEY, link TEXT, title TEXT, description TEXT, published INTEGER, added INTEGER, feed TEXT)")
         db.commit()
     except sqlite3.OperationalError as e:
@@ -209,41 +231,51 @@ if __name__ == "__main__":
         except yaml.YAMLError as e:
             print(e)
 
-    categories = []
     feeds_queue = []
     feed_info_queue = []
+    groups = []
 
-    for cat in feeds:
-        categories.append(cat)
+    for group_id in feeds:
+        groups.append(group_id)
 
-        for feed in feeds[cat]:
-            feed_info_queue.append((feed, cat))
+        for feed in feeds[group_id]:
+            feed_info_queue.append((feed, group_id))
             feeds_queue.append(feed)
 
-    # Pool(processes=os.cpu_count()-1).starmap(fetch_feed_info, feed_info_queue)
-    Pool(processes=len(feed_info_queue)).starmap(fetch_feed_info, feed_info_queue)
+    groups.sort()
 
-    Process(target=cleanup_task, args=(feeds_queue, 3600, 1)).start()
+    Pool(processes=num_procs).starmap(fetch_feed_info, feed_info_queue)
+
+    Process(target=cleanup_task, args=(feeds_queue, 3600, 7)).start()
     Process(target=update_task, args=(feeds_queue, 60)).start()
 
-    @api.route("/")
+    @app.route("/")
     def index():
-        return api.send_static_file("index.html")
+        return render_template("index.html", groups=groups, feeds=get_feeds())
 
-    @api.route("/api/getFeeds", methods=["GET"])
+    @app.route("/group/<group_id>")
+    def index_by_group(group_id):
+        return render_template("index.html", group_id=group_id, groups=groups, items=get_items(group_id=group_id), feeds=get_feeds())
+
+    @app.route("/feed/<feed_id>")
+    def index_by_feed(feed_id):
+        return render_template("index.html", feed_id=feed_id, groups=groups, items=get_items(feed_id=feed_id), feeds=get_feeds())
+
+    @app.route("/api/getFeeds", methods=["GET"])
     def api_get_feeds():
         return jsonify(get_feeds())
 
-    @api.route("/api/getItems", methods=["GET"])
+    @app.route("/api/getItems", methods=["GET"])
     def api_get_items():
         feed_id = request.args.get("feed_id", default=None)
         limit = request.args.get("limit", default=100)
         offset = request.args.get("offset", default=0)
         since = request.args.get("since", default=0)
+        group_id = request.args.get("group_id", default=None)
 
-        return jsonify(get_items(feed_id, limit, offset, since))
+        return jsonify(get_items(feed_id, limit, offset, since, group_id))
 
     print("Ready!")
-    serve(api, port=5000)
+    serve(app, port=5000)
 
     db.close()
