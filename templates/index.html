@@ -115,7 +115,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       display: -webkit-box;
-      -webkit-line-clamp: 2;
+      -webkit-line-clamp: 4;
       -webkit-box-orient: vertical;
     }
 
@@ -262,7 +262,10 @@
     <div class="feeds">
       <div class="toggle">
         <h3 onclick="toggleFeeds();">
-          <a>...</a>
+          <a>&#9776;</a>
+          {% if group_id is not defined and feed_id is not defined %}
+          <span class="group">all feeds</span>
+          {% endif %}
 
           {% if feed_id is defined %}
           <span class="feed feed_{{feed_id}}">
@@ -271,12 +274,13 @@
           {% endfor%}
           </span>
           {% endif %}
+
           {% if group_id is defined %}
           <span class="group">{{group_id}}</span>
           {% endif %}
         </h3>
       </div>
-      <div class="group all"><h3{% if feed_id is not defined and group_id is not defined %} class="active"{% endif %}><a href="/">all</a></h3></div>
+      <div class="group all"><h3{% if feed_id is not defined and group_id is not defined %} class="active"{% endif %}><a href="/">all feeds</a></h3></div>
       {% for group in groups %}
         <div class="group group_{{group}}">
           <h3{% if group == group_id %} class="active"{% endif %}><a href="/group/{{group}}">{{group}}</a></h3>
