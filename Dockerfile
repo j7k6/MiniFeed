@@ -7,4 +7,4 @@ COPY requirements.txt /tmp/
 RUN pip install -r /tmp/requirements.txt
 
 WORKDIR /app
-CMD ["python", "-u", "app.py"]
+CMD ["python", "-u", "minifeed.py"]

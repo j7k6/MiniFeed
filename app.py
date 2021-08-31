@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from PIL import Image
-from flask import Flask, jsonify, request, send_from_directory, render_template
+from flask import Flask, jsonify, request, render_template
 from io import BytesIO
 from multiprocessing import Pool, Process
 from urllib.parse import urlparse
@@ -30,18 +30,18 @@ app = Flask(__name__)
 num_procs = 8
 
 
-def get_items(feed_id=None, limit=100, offset=0, since=0, group_id=None):
+def get_items(feed_id=None, limit=100, since=0, group_id=None):
     global db
 
     cur = db.cursor()
 
     if group_id is None:
         if feed_id is None:
-            cur.execute("SELECT * FROM items WHERE added > ? AND link NOT IN (SELECT link FROM items WHERE added > ? ORDER BY added DESC LIMIT ?) ORDER BY added DESC LIMIT ?", (since, since, offset, limit))
+            cur.execute("SELECT * FROM items WHERE added > ? ORDER BY added DESC LIMIT ?", (since, limit))
         else:
-            cur.execute("SELECT * FROM items WHERE feed=? AND added > ? AND link NOT IN (SELECT link FROM items WHERE feed=? AND added > ? ORDER BY added DESC LIMIT ?) ORDER BY added DESC LIMIT ?", (feed_id, since, feed_id, since, offset, limit))
+            cur.execute("SELECT * FROM items WHERE feed=? AND added > ? ORDER BY added DESC LIMIT ?", (feed_id, since, limit))
     else:
-        cur.execute("SELECT * FROM items WHERE added > ? AND feed IN (SELECT id FROM feeds WHERE group_id=?) AND link NOT IN (SELECT link FROM items WHERE added > ? AND feed IN (SELECT id FROM feeds WHERE group_id=?) ORDER BY added DESC LIMIT ?) ORDER BY added DESC LIMIT ?", (since, group_id, since, group_id, offset, limit))
+        cur.execute("SELECT * FROM items WHERE added > ? AND feed IN (SELECT id FROM feeds WHERE group_id=?) ORDER BY added DESC LIMIT ?", (since, group_id, limit))
 
     rows = [dict(row) for row in cur.fetchall()]
 
@@ -60,11 +60,13 @@ def get_feeds():
 
 
 def fetch_favicon(url):
-    uri = urlparse(url)
-    uri_extracted = tldextract.extract(url)
     favicon_url = None
+    favicon_base64 = ""
 
     try:
+        uri = urlparse(url)
+        uri_extracted = tldextract.extract(url)
+
         favicons = favicon.get(url)
 
         if len(favicons) == 0:
@@ -80,17 +82,22 @@ def fetch_favicon(url):
                     break
 
         if favicon_url is None:
-            favicon_url = f"{uri.scheme}://{uri_extracted.domain}.{uri_extracted.suffix}/favicon.ico"
+            fallback_urls = [f"{uri.scheme}://{uri.netloc}/favicon.ico", f"{uri.scheme}://{uri_extracted.domain}.{uri_extracted.suffix}/favicon.ico"]
 
-        req = requests.get(favicon_url)
-        img = Image.open(BytesIO(req.content))
+            for f in fallback_urls:
+                if requests.head(f, allow_redirects=True).status_code == 200:
+                    favicon_url = f
+                    break
 
-        with BytesIO() as output:
-            img = img.resize((16, 16), Image.ANTIALIAS)
-            img.save(output, format='PNG')
-            favicon_base64 = base64.b64encode(output.getvalue()).decode()
+        if favicon_url is not None:
+            req = requests.get(favicon_url, allow_redirects=True)
+            img = Image.open(BytesIO(req.content))
+
+            with BytesIO() as output:
+                img = img.resize((16, 16), Image.ANTIALIAS)
+                img.save(output, format='PNG')
+                favicon_base64 = base64.b64encode(output.getvalue()).decode()
     except Exception as e:
-        favicon_base64 = ""
         pass
 
     return favicon_base64
@@ -108,7 +115,12 @@ def fetch_feed_info(feed_url, group_id):
         print(f"Error fetching '{feed_url}'")
         return False
 
-    favicon_base64 = fetch_favicon(feed_parsed.feed.link)
+    url = feed_parsed.feed.link
+
+    if url == "":
+        url = feed_url
+        
+    favicon_base64 = fetch_favicon(url)
     
     try:
         db.execute("INSERT INTO feeds (id, url, title, group_id, favicon) VALUES (?, ?, ?, ?, ?)", (feed_id, feed_url, feed_title, group_id, favicon_base64))
@@ -247,7 +259,7 @@ if __name__ == "__main__":
     Pool(processes=num_procs).starmap(fetch_feed_info, feed_info_queue)
 
     Process(target=cleanup_task, args=(feeds_queue, 3600, 7)).start()
-    Process(target=update_task, args=(feeds_queue, 60)).start()
+    Process(target=update_task, args=(feeds_queue, 30)).start()
 
     @app.route("/")
     def index():
@@ -261,19 +273,14 @@ if __name__ == "__main__":
     def index_by_feed(feed_id):
         return render_template("index.html", feed_id=feed_id, groups=groups, items=get_items(feed_id=feed_id), feeds=get_feeds())
 
-    @app.route("/api/getFeeds", methods=["GET"])
-    def api_get_feeds():
-        return jsonify(get_feeds())
-
     @app.route("/api/getItems", methods=["GET"])
     def api_get_items():
         feed_id = request.args.get("feed_id", default=None)
         limit = request.args.get("limit", default=100)
-        offset = request.args.get("offset", default=0)
         since = request.args.get("since", default=0)
         group_id = request.args.get("group_id", default=None)
 
-        return jsonify(get_items(feed_id, limit, offset, since, group_id))
+        return jsonify(get_items(feed_id, limit, since, group_id))
 
     print("Ready!")
     serve(app, port=5000)

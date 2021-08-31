@@ -223,9 +223,7 @@
           console.log(data.length);
           lastTimestamp = data[0].added;
 
-          data.sort((a, b) => (a.published > b.published) ? 1 : -1)
-
-          data.forEach(function(item) {
+          data.reverse().forEach(function(item) {
             var feed = feeds.find(f => f.id === item.feed)
 
             var published = new Intl.DateTimeFormat('en-US', {
@@ -253,7 +251,7 @@
 
     setInterval(function() { 
       getItems(lastTimestamp); 
-    }, 10000);
+    }, 5000);
   </script>
 </head>
 
