@@ -188,6 +188,7 @@
     var feedId = '{{feed_id}}';
     var groupId = '{{group_id}}';
     var showFeeds = false;
+    var firstRun = true;
 
     function toggleFeeds() {
       console.log(showFeeds)
@@ -239,8 +240,21 @@
                     <p>${item.description}</p>\
                   </article>`;
 
+            var lastScrollPos = window.scrollY;
+
             itemsHtml.innerHTML = itemHtml + itemsHtml.innerHTML;
+
+            if (!firstRun) {
+              var prependItem = document.querySelector('.items article:first-child');
+              var prependHeight = prependItem.offsetHeight + parseInt(window.getComputedStyle(prependItem).marginTop) + parseInt(window.getComputedStyle(prependItem).marginBottom);
+
+              window.scrollTo(0, (lastScrollPos + prependHeight));
+            }
           });
+
+          if (firstRun) {
+            firstRun = false;
+          }
         }
       }).catch(function(err) {
         console.log(err)

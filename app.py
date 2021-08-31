@@ -154,7 +154,7 @@ def fetch_feed_items(feed_url):
         
         try:
             item_published = time.strftime('%s', item.published_parsed)
-        except AttributeError as e:
+        except Exception as e:
             item_published = item_added
 
         try:
@@ -173,7 +173,8 @@ def fetch_feed_items(feed_url):
 
     db.commit()
     
-    print(f"Fetched '{feed_title}' ({len(items_new)})")
+    if len(items_new) > 0:
+        print(f"Fetched '{feed_title}' ({len(items_new)})")
 
 
 def cleanup_db(feeds, retention=7):
