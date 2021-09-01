@@ -51,6 +51,7 @@
 
     .feeds > div.toggle {
       display: none;
+
     }
 
     .feeds > div.group h3.active {
@@ -71,9 +72,20 @@
       color: #aaa;
     }
 
+    .feeds .toggle h3 span.feed .feeds .toggle h3 span.group {
+      overflow: hidden;
+    }
+
+    .feeds .toggle h3 span.counter {
+      font-weight: normal;
+      flex: 10%;
+      text-align: right;
+      font-style: italic;
+    }
+
     .feeds .toggle h3 a {
       display: inline-block;
-      padding-right: 2rem;
+      padding-right: 1rem;
     }
 
     .feeds ul li {
@@ -151,24 +163,37 @@
           max-width: calc(100vw - 4rem);
       }
 
-      .feeds, .items {
-        margin: 2rem !important;
+      .items {
+        margin-top: 0 !important;
+        position: relative;
+        width: calc(100vw - 6rem);
+        z-index: 1000;
       }
 
       .feeds {
-        margin-bottom: 0 !important;
+        margin: 0 2rem !important;
+        position: sticky;
+        width: calc(100vw - 6rem);
+        top: 0;
+        z-index: 2000;
+        border-top: 2rem solid #f4f4f4;
+        border-bottom: 2rem solid #f4f4f4;
       }
 
-      .feeds > div.group {
-        display: none;
+      .feeds.show > div:not(.toggle) {
+        display: block !important;
+      }
+
+      .feeds.show {
+        position: absolute;
       }
 
       .feeds > div.toggle {
         display: block;
       }
 
-      .feeds > div.show {
-        display: block !important;
+      .feeds > div:not(.toggle) {
+        display: none;
       }
     }
 
@@ -189,30 +214,32 @@
     var groupId = '{{group_id}}';
     var showFeeds = false;
     var firstRun = true;
+    var newItemsNum = 0;
 
     function toggleFeeds() {
-      console.log(showFeeds)
+      var feedsBlock = document.querySelector('.feeds');
 
       if (showFeeds) {
-        Array.from(document.querySelectorAll('.feeds > div.group')).forEach((el) => el.classList.remove('show'));
+        feedsBlock.classList.remove('show');
         showFeeds = false;
       } else {
-        Array.from(document.querySelectorAll('.feeds > div.group')).forEach((el) => el.classList.add('show'));
+        window.scrollTo(0, 0);
+        feedsBlock.classList.add('show');
         showFeeds = true;
       }
     }
 
     function getItems(since) {
-      var fetchUrl = `/api/getItems?since=${since}`
+      var fetchUrl = `/api/getItems?since=${since}`;
 
       if (feedId !== '') {
         groupId = '';
-        fetchUrl = `${fetchUrl}&feed_id=${feedId}`
+        fetchUrl = `${fetchUrl}&feed_id=${feedId}`;
       }
 
       if (groupId !== '') {
         feedId = '';
-        fetchUrl = `${fetchUrl}&group_id=${groupId}`
+        fetchUrl = `${fetchUrl}&group_id=${groupId}`;
       }
 
       Array.from(document.querySelectorAll('article')).forEach((el) => el.classList.remove('new'));
@@ -224,40 +251,54 @@
           console.log(data.length);
           lastTimestamp = data[0].added;
 
+          if (!firstRun) {
+            var counterValue;
+
+            newItemsNum += data.length;
+
+            if (newItemsNum > 99) {
+              counterValue = '99+';
+            } else {
+              counterValue = newItemsNum;
+            }
+
+            document.querySelector('.counter').innerText = counterValue;
+          }
+
           data.reverse().forEach(function(item) {
-            var feed = feeds.find(f => f.id === item.feed)
+            var feed = feeds.find(f => f.id === item.feed);
 
             var published = new Intl.DateTimeFormat('en-US', {
               year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric', hour12: false
             }).format(new Date(item.published*1000));
 
-            var itemsHtml = document.querySelector('.items');
-            var itemHtml = `
-                  <article class="new">\
+            var lastScrollPos = window.scrollY;
+
+            var newItem = document.createElement('article');
+
+            newItem.innerHTML = `
                     <h5 class="feed_${feed.id}">${feed.title}:</h5>\
                     <h4><a href="${item.link}" target="_blank">${item.title}</a></h4>\
                     <h6>${published}</h6>\
-                    <p>${item.description}</p>\
-                  </article>`;
+                    <p>${item.description}</p>`;
 
-            var lastScrollPos = window.scrollY;
+            newItem.classList.add('new');
 
-            itemsHtml.innerHTML = itemHtml + itemsHtml.innerHTML;
+            document.querySelector('.items').prepend(newItem);
 
-            if (!firstRun) {
+            if (!firstRun && window.scrollY > 0) {
               var prependItem = document.querySelector('.items article:first-child');
-              var prependHeight = prependItem.offsetHeight + parseInt(window.getComputedStyle(prependItem).marginTop) + parseInt(window.getComputedStyle(prependItem).marginBottom);
+              var prependItemStyle = window.getComputedStyle(prependItem);
+              var prependItemHeight = prependItem.offsetHeight + parseInt(prependItemStyle.marginTop) + parseInt(prependItemStyle.marginBottom);
 
-              window.scrollTo(0, (lastScrollPos + prependHeight));
+              window.scrollTo(0, (lastScrollPos + prependItemHeight));
             }
           });
 
-          if (firstRun) {
-            firstRun = false;
-          }
+          firstRun = false;
         }
       }).catch(function(err) {
-        console.log(err)
+        // console.log(err);
       });
     }
 
@@ -266,6 +307,13 @@
     setInterval(function() { 
       getItems(lastTimestamp); 
     }, 5000);
+
+    window.addEventListener('scroll', function() {
+      if (window.scrollY === 0) {
+        newItemsNum = 0;
+        document.querySelector('.counter').innerText = '';
+      }
+    });
   </script>
 </head>
 
@@ -290,6 +338,8 @@
           {% if group_id is defined %}
           <span class="group">{{group_id}}</span>
           {% endif %}
+
+          <span class="counter"></span>
         </h3>
       </div>
       <div class="group all"><h3{% if feed_id is not defined and group_id is not defined %} class="active"{% endif %}><a href="/">all feeds</a></h3></div>

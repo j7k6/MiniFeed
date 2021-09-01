@@ -21,13 +21,17 @@ import tldextract
 import yaml
 
 
+num_procs = int(os.getenv("NUM_PROCS", os.cpu_count()-1))
+update_interval = int(os.getenv("UPDATE_INTERVAL", 60))
+cleanup_interval = int(os.getenv("CLEANUP_INTERVAL", 3600))
+retention_days = int(os.getenv("RETENTION_DAYS", 7))
+server_port = int(os.getenv("SERVER_PORT", 5000))
+
+
 db = sqlite3.connect("minifeed.db", check_same_thread=False, timeout=10)
 db.row_factory = sqlite3.Row
 
 app = Flask(__name__)
-
-# num_procs = os.cpu_count()-1
-num_procs = 8
 
 
 def get_items(feed_id=None, limit=100, since=0, group_id=None):
@@ -177,7 +181,7 @@ def fetch_feed_items(feed_url):
         print(f"Fetched '{feed_title}' ({len(items_new)})")
 
 
-def cleanup_db(feeds, retention=7):
+def cleanup_db(feeds, retention):
     global db
 
     cur = db.cursor()
@@ -215,7 +219,6 @@ def update_task(feeds, update_interval):
         print("Updating Feeds...")
 
         Pool(processes=num_procs).map(fetch_feed_items, feeds)
-        # Pool(processes=len(feeds)).map(fetch_feed_items, feeds)
 
         time.sleep(update_interval)
 
@@ -255,12 +258,10 @@ if __name__ == "__main__":
             feed_info_queue.append((feed, group_id))
             feeds_queue.append(feed)
 
-    groups.sort()
-
     Pool(processes=num_procs).starmap(fetch_feed_info, feed_info_queue)
 
-    Process(target=cleanup_task, args=(feeds_queue, 3600, 7)).start()
-    Process(target=update_task, args=(feeds_queue, 30)).start()
+    Process(target=cleanup_task, args=(feeds_queue, cleanup_interval, retention_days)).start()
+    Process(target=update_task, args=(feeds_queue, update_interval)).start()
 
     @app.route("/")
     def index():
@@ -284,6 +285,6 @@ if __name__ == "__main__":
         return jsonify(get_items(feed_id, limit, since, group_id))
 
     print("Ready!")
-    serve(app, port=5000)
+    serve(app, port=server_port)
 
     db.close()
