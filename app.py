@@ -25,6 +25,7 @@ num_procs = int(os.getenv("NUM_PROCS", os.cpu_count()-1))
 update_interval = int(os.getenv("UPDATE_INTERVAL", 60))
 cleanup_interval = int(os.getenv("CLEANUP_INTERVAL", 3600))
 retention_days = int(os.getenv("RETENTION_DAYS", 7))
+retention_items = int(os.getenv("RETENTION_ITEMS", None))
 server_port = int(os.getenv("SERVER_PORT", 5000))
 
 
@@ -181,7 +182,7 @@ def fetch_feed_items(feed_url):
         print(f"Fetched '{feed_title}' ({len(items_new)})")
 
 
-def cleanup_db(feeds, retention):
+def cleanup_db(feeds, retention_days, retention_items):
     global db
 
     cur = db.cursor()
@@ -202,12 +203,15 @@ def cleanup_db(feeds, retention):
             except Exception as e:
                 pass
 
-    delete_before = int(time.mktime((datetime.datetime.now() - datetime.timedelta(days=retention)).timetuple()))
+    if retention_items is not None:
+        cur.execute("DELETE FROM items WHERE id NOT IN (SELECT id FROM items ORDER BY added DESC LIMIT ?)", (retention_items,))
+
+        print(f"Deleted {cur.rowcount} Items")
+
+    delete_before = int(time.mktime((datetime.datetime.now() - datetime.timedelta(days=retention_days)).timetuple()))
 
     cur.execute("DELETE FROM items WHERE added < ?", (delete_before,))
 
-    db.commit()
-    
     print(f"Deleted {cur.rowcount} Items")
 
     db.execute("INSERT OR REPLACE INTO maintenance (key, value) VALUES (?, ?)", ("ignore_before", delete_before))
@@ -223,11 +227,11 @@ def update_task(feeds, update_interval):
         time.sleep(update_interval)
 
 
-def cleanup_task(feeds, cleanup_interval, retention):
+def cleanup_task(feeds, cleanup_interval, retention_days, retention_items):
     while True:
         print("Cleaning Up Database...")
 
-        cleanup_db(feeds, retention)
+        cleanup_db(feeds, retention_days, retention_items)
 
         time.sleep(cleanup_interval)
 
@@ -260,7 +264,7 @@ if __name__ == "__main__":
 
     Pool(processes=num_procs).starmap(fetch_feed_info, feed_info_queue)
 
-    Process(target=cleanup_task, args=(feeds_queue, cleanup_interval, retention_days)).start()
+    Process(target=cleanup_task, args=(feeds_queue, cleanup_interval, retention_days, retention_items)).start()
     Process(target=update_task, args=(feeds_queue, update_interval)).start()
 
     @app.route("/")
