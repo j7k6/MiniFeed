@@ -263,6 +263,7 @@
             }
 
             document.querySelector('.counter').innerText = counterValue;
+            document.title = `MiniFeed (${counterValue})`;
           }
 
           data.reverse().forEach(function(item) {
@@ -312,6 +313,7 @@
       if (window.scrollY === 0) {
         newItemsNum = 0;
         document.querySelector('.counter').innerText = '';
+        document.title = `MiniFeed`;
       }
     });
   </script>

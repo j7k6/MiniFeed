@@ -29,7 +29,7 @@ retention_items = int(os.getenv("RETENTION_ITEMS", None))
 server_port = int(os.getenv("SERVER_PORT", 5000))
 
 
-db = sqlite3.connect("minifeed.db", check_same_thread=False, timeout=10)
+db = sqlite3.connect("minifeed.db", check_same_thread=False, timeout=10, isolation_level=None)
 db.row_factory = sqlite3.Row
 
 app = Flask(__name__)
@@ -40,15 +40,20 @@ def get_items(feed_id=None, limit=100, since=0, group_id=None):
 
     cur = db.cursor()
 
-    if group_id is None:
-        if feed_id is None:
-            cur.execute("SELECT * FROM items WHERE added > ? ORDER BY added DESC LIMIT ?", (since, limit))
-        else:
-            cur.execute("SELECT * FROM items WHERE feed=? AND added > ? ORDER BY added DESC LIMIT ?", (feed_id, since, limit))
-    else:
-        cur.execute("SELECT * FROM items WHERE added > ? AND feed IN (SELECT id FROM feeds WHERE group_id=?) ORDER BY added DESC LIMIT ?", (since, group_id, limit))
+    rows = []
 
-    rows = [dict(row) for row in cur.fetchall()]
+    try:
+        if group_id is None:
+            if feed_id is None:
+                cur.execute("SELECT * FROM items WHERE added > ? ORDER BY added DESC LIMIT ?", (since, limit))
+            else:
+                cur.execute("SELECT * FROM items WHERE feed=? AND added > ? ORDER BY added DESC LIMIT ?", (feed_id, since, limit))
+        else:
+            cur.execute("SELECT * FROM items WHERE added > ? AND feed IN (SELECT id FROM feeds WHERE group_id=?) ORDER BY added DESC LIMIT ?", (since, group_id, limit))
+
+        rows = [dict(row) for row in cur.fetchall()]
+    except Exception as e:
+        pass
 
     return rows
 
@@ -56,10 +61,15 @@ def get_items(feed_id=None, limit=100, since=0, group_id=None):
 def get_feeds():
     global db
 
-    cur = db.cursor()
-    cur.execute("SELECT * FROM feeds ORDER BY title ASC")
+    rows = []
 
-    rows = [dict(row) for row in cur.fetchall()]
+    try:
+        cur = db.cursor()
+        cur.execute("SELECT * FROM feeds ORDER BY title ASC")
+
+        rows = [dict(row) for row in cur.fetchall()]
+    except Exception as e:
+        pass
 
     return rows
 
@@ -124,17 +134,15 @@ def fetch_feed_info(feed_url, group_id):
 
     if url == "":
         url = feed_url
-        
+
     favicon_base64 = fetch_favicon(url)
-    
+
     try:
         db.execute("INSERT INTO feeds (id, url, title, group_id, favicon) VALUES (?, ?, ?, ?, ?)", (feed_id, feed_url, feed_title, group_id, favicon_base64))
         print(f"Added '{feed_title}'")
     except sqlite3.IntegrityError as e:
         db.execute("UPDATE feeds SET title=?, group_id=?, favicon=? WHERE id=?", (feed_title, group_id, favicon_base64, feed_id))
         print(f"Updated '{feed_title}'")
-    finally:
-        db.commit()
 
 
 def fetch_feed_items(feed_url):
@@ -151,35 +159,45 @@ def fetch_feed_items(feed_url):
         print(f"Error fetching '{feed_url}'")
         return False
 
-    items_new = []
+    ignore_before = 0
+
+    try:
+        cur.execute("SELECT value FROM maintenance WHERE key='ignore_before'")
+
+        if cur.rowcount > 0:
+            ignore_before = int(cur.fetchone()[0])
+    except Exception as e:
+        pass
+
+    new_items = 0
 
     for item in feed_parsed.entries:
         item_id = hashlib.md5(item.link.encode()).hexdigest()
         item_added = int(time.mktime((datetime.datetime.now()).timetuple()))
-        
+
         try:
-            item_published = time.strftime('%s', item.published_parsed)
+            item_published = int(time.strftime('%s', item.published_parsed))
         except Exception as e:
             item_published = item_added
 
-        try:
-            item_description = re.sub("<[^<]+?>", "", item.description)
-        except AttributeError as e:
+        if item_published > ignore_before:
             try:
-                item_description = item.title
+                item_description = re.sub("<[^<]+?>", "", item.description)
             except AttributeError as e:
-                item_description = ""
+                try:
+                    item_description = item.title
+                except AttributeError as e:
+                    item_description = ""
 
-        try:
-            db.execute("INSERT INTO items (id, link, title, description, published, added, feed) VALUES (?, ?, ?, ?, ?, ?, ?)", (item_id, item.link, item.title, item_description, item_published, item_added, feed_id))
-            items_new.append(item)
-        except Exception as e:
-            pass
+            try:
+                db.execute("INSERT INTO items (id, link, title, description, published, added, feed) VALUES (?, ?, ?, ?, ?, ?, ?)", (item_id, item.link, item.title, item_description, item_published, item_added, feed_id))
 
-    db.commit()
-    
-    if len(items_new) > 0:
-        print(f"Fetched '{feed_title}' ({len(items_new)})")
+                new_items += 1
+            except Exception as e:
+                pass
+
+    if new_items > 0:
+        print(f"Fetched '{feed_title}' ({new_items})")
 
 
 def cleanup_db(feeds, retention_days, retention_items):
@@ -188,7 +206,7 @@ def cleanup_db(feeds, retention_days, retention_items):
     cur = db.cursor()
 
     feeds_in_db = get_feeds()
-    
+
     for feed in feeds_in_db:
         if not any(feed["url"] in sublist for sublist in feeds):
             try:
@@ -197,16 +215,25 @@ def cleanup_db(feeds, retention_days, retention_items):
 
                 db.execute("DELETE FROM feeds WHERE id=? LIMIT 1", (feed["id"],))
                 db.execute("DELETE FROM items WHERE feed=?", (feed["id"],))
-                db.commit()
 
                 print(f"Deleted '{feed_title}'")
             except Exception as e:
                 pass
 
-    if retention_items is not None:
-        cur.execute("DELETE FROM items WHERE id NOT IN (SELECT id FROM items ORDER BY added DESC LIMIT ?)", (retention_items,))
+    ignore_before = 0
 
-        print(f"Deleted {cur.rowcount} Items")
+    if retention_items is not None:
+        try:
+            cur.execute("SELECT published FROM items WHERE id NOT IN (SELECT id FROM items ORDER BY added DESC LIMIT ?) ORDER BY published ASC LIMIT 1", (retention_items,))
+
+            if cur.rowcount == 1:
+                ignore_before = int(cur.fetchone()[0])
+
+            cur.execute("DELETE FROM items WHERE id NOT IN (SELECT id FROM items ORDER BY added DESC LIMIT ?)", (retention_items,))
+
+            print(f"Deleted {cur.rowcount} Items")
+        except Exception as e:
+            pass
 
     delete_before = int(time.mktime((datetime.datetime.now() - datetime.timedelta(days=retention_days)).timetuple()))
 
@@ -214,8 +241,10 @@ def cleanup_db(feeds, retention_days, retention_items):
 
     print(f"Deleted {cur.rowcount} Items")
 
-    db.execute("INSERT OR REPLACE INTO maintenance (key, value) VALUES (?, ?)", ("ignore_before", delete_before))
-    db.commit()
+    if ignore_before > delete_before:
+        ignore_before = delete_before
+
+    db.execute("INSERT OR REPLACE INTO maintenance (key, value) VALUES (?, ?)", ("ignore_before", ignore_before))
 
 
 def update_task(feeds, update_interval):
@@ -241,7 +270,6 @@ if __name__ == "__main__":
         db.execute("CREATE TABLE maintenance (key TEXT UNIQUE PRIMARY KEY, value TEXT)")
         db.execute("CREATE TABLE feeds (id TEXT UNIQUE PRIMARY KEY, url TEXT, title TEXT, group_id TEXT, favicon TEXT)")
         db.execute("CREATE TABLE items (id TEXT UNIQUE PRIMARY KEY, link TEXT, title TEXT, description TEXT, published INTEGER, added INTEGER, feed TEXT)")
-        db.commit()
     except sqlite3.OperationalError as e:
         pass
 
