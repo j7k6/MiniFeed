@@ -49,11 +49,6 @@
       background: White;
     }
 
-    .feeds > div.toggle {
-      display: none;
-
-    }
-
     .feeds > div.group h3.active {
       text-decoration: underline;
     }
@@ -155,6 +150,17 @@
     .feeds ul li {
       padding-left: 20px !important;
     }
+    
+    @media screen and (min-width: 800px) {
+      .feeds div.toggle {
+        position: fixed;
+        width: calc(25vw - 4rem);
+        min-width: calc(300px - 4rem);
+        z-index: 1;
+        bottom: 0;
+        border-top: 2rem solid #f4f4f4;
+      }
+    }
 
     @media screen and (max-width: 800px) {
       .wrapper > div {
@@ -215,15 +221,21 @@
     var showFeeds = false;
     var firstRun = true;
     var newItemsNum = 0;
+    var docTitle = document.title;
 
     function toggleFeeds() {
+      document.title = docTitle;
+      document.querySelector('.counter').innerText = '';
+
       var feedsBlock = document.querySelector('.feeds');
+
 
       if (showFeeds) {
         feedsBlock.classList.remove('show');
         showFeeds = false;
       } else {
         window.scrollTo(0, 0);
+
         feedsBlock.classList.add('show');
         showFeeds = true;
       }
@@ -263,7 +275,7 @@
             }
 
             document.querySelector('.counter').innerText = counterValue;
-            document.title = `MiniFeed (${counterValue})`;
+            document.title = `${docTitle} (${counterValue})`;
           }
 
           data.reverse().forEach(function(item) {
@@ -313,7 +325,7 @@
       if (window.scrollY === 0) {
         newItemsNum = 0;
         document.querySelector('.counter').innerText = '';
-        document.title = `MiniFeed`;
+        document.title = docTitle;
       }
     });
   </script>

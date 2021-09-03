@@ -231,7 +231,8 @@ def cleanup_db(feeds, retention_days, retention_items):
 
             cur.execute("DELETE FROM items WHERE id NOT IN (SELECT id FROM items ORDER BY added DESC LIMIT ?)", (retention_items,))
 
-            print(f"Deleted {cur.rowcount} Items")
+            if cur.rowcount > 0:
+                print(f"Deleted {cur.rowcount} Item(s)")
         except Exception as e:
             pass
 
@@ -239,7 +240,8 @@ def cleanup_db(feeds, retention_days, retention_items):
 
     cur.execute("DELETE FROM items WHERE added < ?", (delete_before,))
 
-    print(f"Deleted {cur.rowcount} Items")
+    if cur.rowcount > 0:
+        print(f"Deleted {cur.rowcount} Item(s)")
 
     if ignore_before > delete_before:
         ignore_before = delete_before
