@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from PIL import Image
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, send_from_directory
 from io import BytesIO
 from multiprocessing import Pool, Process
 from urllib.parse import urlparse
@@ -299,7 +299,7 @@ if __name__ == "__main__":
 
     @app.route("/")
     def index():
-        return render_template("index.html", groups=groups, feeds=get_feeds())
+        return app.send_static_file("index.html")
 
     @app.route("/group/<group_id>")
     def index_by_group(group_id):
@@ -308,6 +308,14 @@ if __name__ == "__main__":
     @app.route("/feed/<feed_id>")
     def index_by_feed(feed_id):
         return render_template("index.html", feed_id=feed_id, groups=groups, items=get_items(feed_id=feed_id), feeds=get_feeds())
+
+    @app.route("/api/getFeeds", methods=["GET"])
+    def app_get_feeds():
+        return jsonify(get_feeds())
+
+    @app.route("/api/getGroups", methods=["GET"])
+    def app_get_groups():
+        return jsonify(groups)
 
     @app.route("/api/getItems", methods=["GET"])
     def api_get_items():
