@@ -3,12 +3,13 @@
 const itemTypes = { 'group': 'group', 'feed': 'feed' };
 const docTitle = document.title;
 
+var groups, feeds;
 var lastTimestamp = 0;
 var showFeeds = false;
 var newItemsCount = 0;
-var itemType = 'all';
-var itemTypeId = '';
-var groups, feeds;
+var params = window.location.hash.substring(1).split('/');
+var itemType = params[1] || 'all';
+var itemTypeId = params[2] || '';
 
 
 function toggleFeeds() {
@@ -62,29 +63,28 @@ function formatDate(date) {
 
 
 function getItems(since) {
+  let itemsHtml = document.querySelector('.items');
   let fetchUrl = `/api/getItems?since=${since}`;
 
   if (itemType !== 'all')
     fetchUrl = `${fetchUrl}&${itemTypes[itemType]}_id=${itemTypeId}`;
+
+  if (since === 0)
+    itemsHtml.innerHTML = '';
 
   fetch(fetchUrl).then(function(res) {
     return res.json();
   }).then(function(data) {
     let items = data;
     let lastScrollPos = window.scrollY;
-    let itemsHtml = document.querySelector('.items');
     let itemsHtmlStyle = window.getComputedStyle(itemsHtml);
     let itemsHtmlHeightBefore = itemsHtml.offsetHeight + parseInt(itemsHtmlStyle.marginTop) + parseInt(itemsHtmlStyle.marginBottom);
-
-    if (since === 0)
-      itemsHtml.innerHTML = '';
 
     if (items.length > 0) {
       console.log(items.length);
       lastTimestamp = items[0].added;
 
-      if (since > 0)
-        setNewItemsCounter(items.length);
+      if (since > 0) setNewItemsCounter(items.length);
 
       Array.from(document.querySelectorAll('article')).forEach((el) => el.classList.remove('new'));
 
@@ -127,14 +127,8 @@ function showItems(newItemType, newItemTypeId) {
 }
 
 
-if (window.location.hash) {
-  let params = window.location.hash.substring(1).split('/');
-  
-  itemType = params[1] || 'all';
-  itemTypeId = params[2] || '';
-} else {
+if (!window.location.hash) 
   window.location.hash = '#/all';
-}
 
 fetch('/api/getGroups').then(function(res) {
   return res.json();
