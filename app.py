@@ -172,29 +172,32 @@ def fetch_feed_items(feed_url):
     new_items = 0
 
     for item in feed_parsed.entries:
-        item_id = hashlib.md5(item.link.encode()).hexdigest()
-        item_added = int(time.mktime((datetime.datetime.now()).timetuple()))
-
         try:
-            item_published = int(time.strftime('%s', item.published_parsed))
-        except Exception as e:
-            item_published = item_added
-
-        if item_published > ignore_before:
-            try:
-                item_description = re.sub("<[^<]+?>", "", item.description)
-            except AttributeError as e:
-                try:
-                    item_description = item.title
-                except AttributeError as e:
-                    item_description = ""
+            item_id = hashlib.md5(item.link.encode()).hexdigest()
+            item_added = int(time.mktime((datetime.datetime.now()).timetuple()))
 
             try:
-                db.execute("INSERT INTO items (id, link, title, description, published, added, feed) VALUES (?, ?, ?, ?, ?, ?, ?)", (item_id, item.link, item.title, item_description, item_published, item_added, feed_id))
-
-                new_items += 1
+                item_published = int(time.strftime('%s', item.published_parsed))
             except Exception as e:
-                pass
+                item_published = item_added
+
+            if item_published > ignore_before:
+                try:
+                    item_description = re.sub("<[^<]+?>", "", item.description)
+                except AttributeError as e:
+                    try:
+                        item_description = item.title
+                    except AttributeError as e:
+                        item_description = ""
+
+                try:
+                    db.execute("INSERT INTO items (id, link, title, description, published, added, feed) VALUES (?, ?, ?, ?, ?, ?, ?)", (item_id, item.link, item.title, item_description, item_published, item_added, feed_id))
+
+                    new_items += 1
+                except Exception as e:
+                    pass
+        except Exception as e:
+            pass
 
     if new_items > 0:
         print(f"Fetched '{feed_title}' ({new_items})")
