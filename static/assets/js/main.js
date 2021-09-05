@@ -48,7 +48,7 @@ function setToggleNavInfo(itemType, itemTypeId) {
 function setNewItemsCounter(newItems) {
   newItemsCount += newItems;
 
-  let counterValue = (newItemsCount > 99) ? '99+' : newItemsCounter;
+  let counterValue = (newItemsCount > 99) ? '99+' : newItemsCount;
 
   document.querySelector('.counter').innerText = counterValue;
   document.title = `${docTitle} (${counterValue})`;
