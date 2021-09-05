@@ -14,15 +14,9 @@ var groups, feeds;
 function toggleFeeds() {
   let feedsBlock = document.querySelector('.feeds');
 
-  if (showFeeds) {
-    feedsBlock.classList.remove('show');
+  (showFeeds) ? feedsBlock.classList.remove('show') : feedsBlock.classList.add('show');
 
-    showFeeds = false;
-  } else {
-    feedsBlock.classList.add('show');
-
-    showFeeds = true;
-  }
+  showFeeds = !showFeeds;
 
   window.scrollTo(0, 0);
 }
@@ -53,10 +47,7 @@ function setToggleNavInfo(itemType, itemTypeId) {
 function setNewItemsCounter(newItems) {
   newItemsCount += newItems;
 
-  let counterValue = newItemsCount;
-
-  if (newItemsCount > 99)
-    counterValue = '99+';
+  let counterValue = (newItemsCount > 99) ? '99+' : newItemsCounter;
 
   document.querySelector('.counter').innerText = counterValue;
   document.title = `${docTitle} (${counterValue})`;
@@ -121,26 +112,17 @@ function getItems(since) {
 
 
 function showItems(newItemType, newItemTypeId) {
-  let clickElement = document.querySelector('.group.all')
-
   itemType = newItemType;
   itemTypeId = newItemTypeId;
-
-  if (itemType !== 'all')
-    clickElement = document.querySelector(`.${itemType}.${itemType}_${itemTypeId}`)
-  
-  Array.from(document.querySelectorAll('.active')).forEach((el) => el.classList.remove('active'));
-
-  clickElement.classList.add('active');
-
-  setToggleNavInfo(itemType, itemTypeId);
-
-  document.querySelector('.feeds').classList.remove('show');
-
-  window.scrollTo(0, 0);
-
   newItemsCount = 0;
 
+  Array.from(document.querySelectorAll('.active')).forEach((el) => el.classList.remove('active'));
+
+  document.querySelector((itemType === 'all') ? '.group.all' : `.${itemType}.${itemType}_${itemTypeId}`).classList.add('active');
+  document.querySelector('.feeds').classList.remove('show');
+  window.scrollTo(0, 0);
+
+  setToggleNavInfo(itemType, itemTypeId);
   getItems(0);
 }
 
