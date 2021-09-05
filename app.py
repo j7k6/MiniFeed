@@ -301,13 +301,9 @@ if __name__ == "__main__":
     def index():
         return app.send_static_file("index.html")
 
-    @app.route("/group/<group_id>")
-    def index_by_group(group_id):
-        return render_template("index.html", group_id=group_id, groups=groups, items=get_items(group_id=group_id), feeds=get_feeds())
-
-    @app.route("/feed/<feed_id>")
-    def index_by_feed(feed_id):
-        return render_template("index.html", feed_id=feed_id, groups=groups, items=get_items(feed_id=feed_id), feeds=get_feeds())
+    @app.route("/assets/<path:path>")
+    def serve_static(path):
+        return send_from_directory("static/assets", path)
 
     @app.route("/api/getFeeds", methods=["GET"])
     def app_get_feeds():
