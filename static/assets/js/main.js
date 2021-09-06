@@ -3,13 +3,19 @@
 const itemTypes = { 'group': 'group', 'feed': 'feed' };
 const docTitle = document.title;
 
-var groups, feeds;
 var lastTimestamp = 0;
 var showFeeds = false;
 var newItemsCount = 0;
-var params = window.location.hash.substring(1).split('/');
-var itemType = params[1] || 'all';
-var itemTypeId = params[2] || '';
+
+var groups, feeds;
+var params, itemType, itemTypeId;
+
+
+function getParams() {
+  params = window.location.hash.substring(1).split('/');
+  itemType = params[1] || 'all';
+  itemTypeId = params[2] || '';
+}
 
 
 function toggleFeeds() {
@@ -127,8 +133,11 @@ function showItems(newItemType, newItemTypeId) {
 }
 
 
-if (!window.location.hash) 
+if (!window.location.hash) {
   window.location.hash = '#/all';
+} else {
+  getParams();
+}
 
 fetch('/api/getGroups').then(function(res) {
   return res.json();
@@ -171,6 +180,7 @@ setInterval(function() {
   getItems(lastTimestamp); 
 }, 5000);
 
+
 window.addEventListener('scroll', function() {
   if (window.scrollY === 0) {
     newItemsCount = 0;
@@ -178,4 +188,12 @@ window.addEventListener('scroll', function() {
     document.querySelector('.counter').innerText = '';
     document.title = docTitle;
   }
+});
+
+
+window.addEventListener('hashchange', function() {
+  getParams();
+
+  if (feeds) 
+    showItems(itemType, itemTypeId);
 });
