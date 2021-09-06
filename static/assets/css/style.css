@@ -49,8 +49,12 @@ body {
   list-style-type: none;
 }
 
-.feeds .toggle h3 {
+.feeds .toggle {
   cursor: pointer;
+  user-select: none;
+}
+
+.feeds .toggle h3 {
   display: flex;
   justify-content: space-between;
 }

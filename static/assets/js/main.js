@@ -182,7 +182,6 @@ document.querySelector('.group.all').addEventListener('click', function() {
   showItems('all', '');
 });
 
-
 window.addEventListener('scroll', function() {
   if (window.scrollY === 0) {
     newItemsCount = 0;
@@ -191,7 +190,6 @@ window.addEventListener('scroll', function() {
     document.title = docTitle;
   }
 });
-
 
 window.addEventListener('hashchange', function() {
   getParams();
