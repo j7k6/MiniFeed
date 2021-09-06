@@ -133,11 +133,7 @@ function showItems(newItemType, newItemTypeId) {
 }
 
 
-if (!window.location.hash) {
-  window.location.hash = '#/all';
-} else {
-  getParams();
-}
+if (!window.location.hash) window.location.hash = '#/all';
 
 fetch('/api/getGroups').then(function(res) {
   return res.json();
@@ -159,26 +155,32 @@ fetch('/api/getGroups').then(function(res) {
     document.querySelector('.feeds').innerHTML += 
       `${groups.map(groupId =>
         `<div class="group group_${groupId}">
-          <h3 onclick="showItems('group', '${groupId}');"><a href="#/group/${groupId}">${groupId}</a></h3>
+          <h3><a href="#/group/${groupId}">${groupId}</a></h3>
           <ul>
           ${feeds.filter(feed => feed.group_id === groupId).map(feed =>
-            `<li class="feed feed_${feed.id}" onclick="showItems('feed', '${feed.id}');"><a href="#/feed/${feed.id}">${feed.title}</li>`     
+            `<li class="feed feed_${feed.id}"><a href="#/feed/${feed.id}">${feed.title}</li>`     
           ).join('')}
           </ul>
         </div>`
       ).join('')}`;
 
+    getParams();
     showItems(itemType, itemTypeId);
   }).catch(function(err) {
-    console.log(err)
+    console.log(err);
   });
 }).catch(function(err) {
-  console.log(err)
+  console.log(err);
 });
 
 setInterval(function() { 
   getItems(lastTimestamp); 
 }, 5000);
+
+
+document.querySelector('.group.all').addEventListener('click', function() {
+  showItems('all', '');
+});
 
 
 window.addEventListener('scroll', function() {
@@ -194,6 +196,5 @@ window.addEventListener('scroll', function() {
 window.addEventListener('hashchange', function() {
   getParams();
 
-  if (feeds) 
-    showItems(itemType, itemTypeId);
+  if (feeds) showItems(itemType, itemTypeId);
 });
