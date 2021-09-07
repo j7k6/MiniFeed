@@ -56,9 +56,12 @@ function setNavInfo(itemType, itemTypeId) {
 
 
 function setItemCounter(newItems) {
+  let counterValue;
+
   newItemsCount += newItems;
 
-  let counterValue = (newItemsCount > 99) ? '99+' : newItemsCount;
+  counterValue = (newItemsCount > 99) ? '99+' : newItemsCount;
+  counterValue = (newItemsCount > 0) ? counterValue : '';
 
   document.querySelector('.counter').innerText = counterValue;
   document.title = `${docTitle} (${counterValue})`;
@@ -69,6 +72,24 @@ function formatDate(date) {
   return new Intl.DateTimeFormat('en-US', {
     year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric', hour12: false
   }).format(new Date(date*1000));
+}
+
+
+function showItems(newItemType, newItemTypeId) {
+  itemType = newItemType;
+  itemTypeId = newItemTypeId;
+  newItemsCount = 0;
+  showFeeds = false;
+
+  Array.from(document.querySelectorAll('.active')).forEach((el) => el.classList.remove('active'));
+
+  document.querySelector((itemType === 'all') ? '.group.all' : `.${itemType}.${itemType}_${itemTypeId}`).classList.add('active');
+  document.querySelector('.feeds').classList.remove('show');
+  window.scrollTo(0, 0);
+
+  setItemCounter(0)
+  setNavInfo(itemType, itemTypeId);
+  getItems(0);
 }
 
 
@@ -118,24 +139,6 @@ function getItems(since) {
   }).catch(function(err) {
     console.log(err);
   });
-}
-
-
-function showItems(newItemType, newItemTypeId) {
-  itemType = newItemType;
-  itemTypeId = newItemTypeId;
-  newItemsCount = 0;
-  showFeeds = false;
-
-  Array.from(document.querySelectorAll('.active')).forEach((el) => el.classList.remove('active'));
-
-  document.querySelector((itemType === 'all') ? '.group.all' : `.${itemType}.${itemType}_${itemTypeId}`).classList.add('active');
-  document.querySelector('.feeds').classList.remove('show');
-  window.scrollTo(0, 0);
-
-  setItemCounter(0)
-  setNavInfo(itemType, itemTypeId);
-  getItems(0);
 }
 
 
