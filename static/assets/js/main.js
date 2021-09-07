@@ -55,7 +55,7 @@ function setInfo(itemType, itemTypeId) {
 }
 
 
-function setNewItemsCounter(newItems) {
+function setItemCounter(newItems) {
   newItemsCount += newItems;
 
   let counterValue = (newItemsCount > 99) ? '99+' : newItemsCount;
@@ -94,7 +94,7 @@ function getItems(since) {
       console.log(items.length);
       lastTimestamp = items[0].added;
 
-      if (since > 0) setNewItemsCounter(items.length);
+      if (since > 0) setItemCounter(items.length);
 
       Array.from(document.querySelectorAll('article')).forEach((el) => el.classList.remove('new'));
 
@@ -133,6 +133,7 @@ function showItems(newItemType, newItemTypeId) {
   document.querySelector('.feeds').classList.remove('show');
   window.scrollTo(0, 0);
 
+  setItemCounter(0)
   setInfo(itemType, itemTypeId);
   getItems(0);
 }
