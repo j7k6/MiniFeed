@@ -29,7 +29,7 @@ function toggleFeeds() {
 }
 
 
-function setInfo(itemType, itemTypeId) {
+function setNavInfo(itemType, itemTypeId) {
   let info = document.querySelector('.info');
 
   info.className = 'info';
@@ -134,7 +134,7 @@ function showItems(newItemType, newItemTypeId) {
   window.scrollTo(0, 0);
 
   setItemCounter(0)
-  setInfo(itemType, itemTypeId);
+  setNavInfo(itemType, itemTypeId);
   getItems(0);
 }
 
