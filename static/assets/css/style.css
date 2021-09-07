@@ -142,8 +142,8 @@ body {
 @media screen and (min-width: 800px) {
   .feeds div.nav {
     position: fixed;
-    width: calc(25vw - 4rem);
-    min-width: calc(300px - 4rem);
+    width: calc(25vw - 2rem);
+    min-width: calc(300px - 2rem);
     z-index: 1;
     bottom: 0;
     border-top: 2rem solid #f4f4f4;
