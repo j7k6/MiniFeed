@@ -29,8 +29,8 @@ function toggleFeeds() {
 }
 
 
-function setToggleNavInfo(itemType, itemTypeId) {
-  let info = document.querySelector('.toggle span.info');
+function setInfo(itemType, itemTypeId) {
+  let info = document.querySelector('.info');
 
   info.className = 'info';
 
@@ -44,8 +44,12 @@ function setToggleNavInfo(itemType, itemTypeId) {
       break;
 
     case 'feed':
-      info.innerHTML = `${feeds.find(feed => feed.id === itemTypeId).title}`;
+      let feed = feeds.find(feed => feed.id === itemTypeId)
+
+      info.innerHTML = feed.title;
       info.classList.add(`feed_${itemTypeId}`);
+
+      if (feed.favicon !== '') info.classList.add('favicon');
       break;
   }
 }
@@ -97,7 +101,7 @@ function getItems(since) {
       itemsHtml.innerHTML =
         `${items.map(item =>
           `<article class="new">
-             <h5 class="feed_${item.feed}">${feeds.find(feed => feed.id === item.feed).title}:</h5>
+             <h5 class="feed_${item.feed} favicon">${feeds.find(feed => feed.id === item.feed).title}:</h5>
              <h4><a href="${item.link}" target="_blank">${item.title}</a></h4>
              <h6>${formatDate(item.published)}</h6>
              <p>${item.description}</p>
@@ -121,6 +125,7 @@ function showItems(newItemType, newItemTypeId) {
   itemType = newItemType;
   itemTypeId = newItemTypeId;
   newItemsCount = 0;
+  showFeeds = false;
 
   Array.from(document.querySelectorAll('.active')).forEach((el) => el.classList.remove('active'));
 
@@ -128,7 +133,7 @@ function showItems(newItemType, newItemTypeId) {
   document.querySelector('.feeds').classList.remove('show');
   window.scrollTo(0, 0);
 
-  setToggleNavInfo(itemType, itemTypeId);
+  setInfo(itemType, itemTypeId);
   getItems(0);
 }
 
@@ -148,7 +153,7 @@ fetch('/api/getGroups').then(function(res) {
     document.querySelector('head').innerHTML +=
       `<style type="text/css">
         ${feeds.filter(feed => feed.favicon !== '').map(feed =>
-          `.feed_${feed.id} { padding-left: 20px; background-image: url('data:image/png;base64, ${feed.favicon}'); }`
+          `.feed_${feed.id} { padding-left: 1.5rem !important; background-image: url('data:image/png;base64, ${feed.favicon}'); }`
         ).join('')}
       </style>`;
 
@@ -158,7 +163,7 @@ fetch('/api/getGroups').then(function(res) {
           <h3><a href="#/group/${groupId}">${groupId}</a></h3>
           <ul>
           ${feeds.filter(feed => feed.group_id === groupId).map(feed =>
-            `<li class="feed feed_${feed.id}"><a href="#/feed/${feed.id}">${feed.title}</li>`     
+            `<li class="feed favicon feed_${feed.id}"><a href="#/feed/${feed.id}">${feed.title}</li>`     
           ).join('')}
           </ul>
         </div>`
@@ -177,10 +182,6 @@ setInterval(function() {
   getItems(lastTimestamp); 
 }, 5000);
 
-
-document.querySelector('.group.all').addEventListener('click', function() {
-  showItems('all', '');
-});
 
 window.addEventListener('scroll', function() {
   if (window.scrollY === 0) {

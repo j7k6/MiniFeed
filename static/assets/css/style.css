@@ -36,51 +36,47 @@ body {
   text-decoration: none;
 }
 
-.feeds > div {
+.feeds .group {
   padding: 1rem;
   background: White;
 }
 
-.feeds > div.group.active h3 {
+.feeds .group.active h3 {
   text-decoration: underline;
 }
 
-.feeds ul {
-  list-style-type: none;
-}
-
-.feeds .toggle {
-  cursor: pointer;
+.feeds .nav {
   user-select: none;
+  cursor: pointer;
+  background: White;
 }
 
-.feeds .toggle h3 {
+.feeds .nav h3 {
   display: flex;
   justify-content: space-between;
-}
-
-.feeds .toggle h3 span {
   color: #aaa;
 }
 
-.feeds .toggle h3 span.feed .feeds .toggle h3 span.group {
+.feeds .nav span {
+  display: inline-block;
+  padding: 1rem;
+}
+
+.feeds .nav .info {
   overflow: hidden;
 }
 
-.feeds .toggle h3 span.counter {
+.feeds .nav .counter {
   font-weight: normal;
   flex: 10%;
   text-align: right;
   font-style: italic;
 }
 
-.feeds .toggle h3 a {
-  display: inline-block;
-  padding-right: 1rem;
-}
-
 .feeds ul li {
   line-height: 2;
+  padding-left: 20px;
+  list-style-type: none;
 }
 
 .feeds ul li.active {
@@ -135,19 +131,15 @@ body {
   color: #aaa;
 }
 
-.items article h5, .feeds ul li, .feeds .toggle h3 span {
+.favicon {
   background-repeat: no-repeat;
   background-position: center left;
   white-space: nowrap;
   overflow: hidden;
 }
 
-.feeds ul li {
-  padding-left: 20px !important;
-}
-
 @media screen and (min-width: 800px) {
-  .feeds div.toggle {
+  .feeds div.nav {
     position: fixed;
     width: calc(25vw - 4rem);
     min-width: calc(300px - 4rem);
@@ -181,7 +173,7 @@ body {
     border-bottom: 2rem solid #f4f4f4;
   }
 
-  .feeds.show > div:not(.toggle) {
+  .feeds.show > div:not(.nav) {
     display: block !important;
   }
 
@@ -189,11 +181,11 @@ body {
     position: absolute;
   }
 
-  .feeds > div.toggle {
+  .feeds .nav {
     display: block;
   }
 
-  .feeds > div:not(.toggle) {
+  .feeds > div:not(.nav) {
     display: none;
   }
 }
