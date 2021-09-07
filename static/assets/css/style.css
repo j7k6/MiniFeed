@@ -64,6 +64,7 @@ body {
 
 .feeds .nav .info {
   overflow: hidden;
+  white-space: nowrap;
 }
 
 .feeds .nav .counter {
