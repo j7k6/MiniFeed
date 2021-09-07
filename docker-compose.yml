@@ -8,7 +8,6 @@ services:
     environment:
       NUM_PROCS: 8
       UPDATE_INTERVAL: 30
-      RETENTION_ITEMS: 10000
     ports:
       - '0.0.0.0:5000:5000'
     volumes:

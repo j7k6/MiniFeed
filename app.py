@@ -23,9 +23,6 @@ import yaml
 
 num_procs = int(os.getenv("NUM_PROCS", os.cpu_count()-1))
 update_interval = int(os.getenv("UPDATE_INTERVAL", 60))
-cleanup_interval = int(os.getenv("CLEANUP_INTERVAL", 3600))
-retention_days = int(os.getenv("RETENTION_DAYS", 7))
-retention_items = int(os.getenv("RETENTION_ITEMS", None))
 server_port = int(os.getenv("SERVER_PORT", 5000))
 
 
@@ -159,16 +156,6 @@ def fetch_feed_items(feed_url):
         print(f"Error fetching '{feed_url}'")
         return False
 
-    ignore_before = 0
-
-    try:
-        cur.execute("SELECT value FROM maintenance WHERE key='ignore_before'")
-
-        if cur.rowcount > 0:
-            ignore_before = int(cur.fetchone()[0])
-    except Exception as e:
-        pass
-
     new_items = 0
 
     for item in feed_parsed.entries:
@@ -181,75 +168,25 @@ def fetch_feed_items(feed_url):
             except Exception as e:
                 item_published = item_added
 
-            if item_published > ignore_before:
+            try:
+                item_description = re.sub("<[^<]+?>", "", item.description)
+            except AttributeError as e:
                 try:
-                    item_description = re.sub("<[^<]+?>", "", item.description)
+                    item_description = item.title
                 except AttributeError as e:
-                    try:
-                        item_description = item.title
-                    except AttributeError as e:
-                        item_description = ""
+                    item_description = ""
 
-                try:
-                    db.execute("INSERT INTO items (id, link, title, description, published, added, feed) VALUES (?, ?, ?, ?, ?, ?, ?)", (item_id, item.link, item.title, item_description, item_published, item_added, feed_id))
+            try:
+                db.execute("INSERT INTO items (id, link, title, description, published, added, feed) VALUES (?, ?, ?, ?, ?, ?, ?)", (item_id, item.link, item.title, item_description, item_published, item_added, feed_id))
 
-                    new_items += 1
-                except Exception as e:
-                    pass
+                new_items += 1
+            except Exception as e:
+                pass
         except Exception as e:
             pass
 
     if new_items > 0:
         print(f"Fetched '{feed_title}' ({new_items})")
-
-
-def cleanup_db(feeds, retention_days, retention_items):
-    global db
-
-    cur = db.cursor()
-
-    feeds_in_db = get_feeds()
-
-    for feed in feeds_in_db:
-        if not any(feed["url"] in sublist for sublist in feeds):
-            try:
-                cur.execute("SELECT title FROM feeds WHERE id=?", (feed["id"],))
-                feed_title = cur.fetchone()[0]
-
-                db.execute("DELETE FROM feeds WHERE id=? LIMIT 1", (feed["id"],))
-                db.execute("DELETE FROM items WHERE feed=?", (feed["id"],))
-
-                print(f"Deleted '{feed_title}'")
-            except Exception as e:
-                pass
-
-    ignore_before = 0
-
-    if retention_items is not None:
-        try:
-            cur.execute("SELECT published FROM items WHERE id NOT IN (SELECT id FROM items ORDER BY added DESC LIMIT ?) ORDER BY published ASC LIMIT 1", (retention_items,))
-
-            if cur.rowcount == 1:
-                ignore_before = int(cur.fetchone()[0])
-
-            cur.execute("DELETE FROM items WHERE id NOT IN (SELECT id FROM items ORDER BY added DESC LIMIT ?)", (retention_items,))
-
-            if cur.rowcount > 0:
-                print(f"Deleted {cur.rowcount} Item(s)")
-        except Exception as e:
-            pass
-
-    delete_before = int(time.mktime((datetime.datetime.now() - datetime.timedelta(days=retention_days)).timetuple()))
-
-    cur.execute("DELETE FROM items WHERE added < ?", (delete_before,))
-
-    if cur.rowcount > 0:
-        print(f"Deleted {cur.rowcount} Item(s)")
-
-    if ignore_before > delete_before:
-        ignore_before = delete_before
-
-    db.execute("INSERT OR REPLACE INTO maintenance (key, value) VALUES (?, ?)", ("ignore_before", ignore_before))
 
 
 def update_task(feeds, update_interval):
@@ -261,18 +198,8 @@ def update_task(feeds, update_interval):
         time.sleep(update_interval)
 
 
-def cleanup_task(feeds, cleanup_interval, retention_days, retention_items):
-    while True:
-        print("Cleaning Up Database...")
-
-        cleanup_db(feeds, retention_days, retention_items)
-
-        time.sleep(cleanup_interval)
-
-
 if __name__ == "__main__":
     try:
-        db.execute("CREATE TABLE maintenance (key TEXT UNIQUE PRIMARY KEY, value TEXT)")
         db.execute("CREATE TABLE feeds (id TEXT UNIQUE PRIMARY KEY, url TEXT, title TEXT, group_id TEXT, favicon TEXT)")
         db.execute("CREATE TABLE items (id TEXT UNIQUE PRIMARY KEY, link TEXT, title TEXT, description TEXT, published INTEGER, added INTEGER, feed TEXT)")
     except sqlite3.OperationalError as e:
@@ -296,8 +223,6 @@ if __name__ == "__main__":
             feeds_queue.append(feed)
 
     Pool(processes=num_procs).starmap(fetch_feed_info, feed_info_queue)
-
-    Process(target=cleanup_task, args=(feeds_queue, cleanup_interval, retention_days, retention_items)).start()
     Process(target=update_task, args=(feeds_queue, update_interval)).start()
 
     @app.route("/")
