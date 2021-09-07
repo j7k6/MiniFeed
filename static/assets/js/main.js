@@ -64,7 +64,7 @@ function setItemCounter(newItems) {
   counterValue = (newItemsCount > 0) ? counterValue : '';
 
   document.querySelector('.counter').innerText = counterValue;
-  document.title = `${docTitle} (${counterValue})`;
+  document.title = `${docTitle}${(newItemsCount > 0) ? ` (${newItemsCount})` : ''}`;
 }
 
 
