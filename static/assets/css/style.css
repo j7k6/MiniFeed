@@ -147,10 +147,11 @@ body {
     z-index: 1;
     top: 0;
     border-bottom: 2rem solid #f4f4f4;
+    border-top: 2rem solid #f4f4f4;
   }
 
   .feeds .all {
-    margin-top: 4rem;
+    margin-top: 6rem;
   }
 }
 
