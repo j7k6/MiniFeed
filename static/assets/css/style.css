@@ -145,8 +145,12 @@ body {
     width: calc(25vw - 2rem);
     min-width: calc(300px - 2rem);
     z-index: 1;
-    bottom: 0;
-    border-top: 2rem solid #f4f4f4;
+    top: 0;
+    border-bottom: 2rem solid #f4f4f4;
+  }
+
+  .feeds .all {
+    margin-top: 4rem;
   }
 }
 

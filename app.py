@@ -67,7 +67,7 @@ def fetch_favicon(url):
 
             with BytesIO() as output:
                 img = img.resize((16, 16), Image.ANTIALIAS)
-                img.save(output, format='PNG')
+                img.save(output, format="PNG")
                 favicon_base64 = base64.b64encode(output.getvalue()).decode()
     except Exception as e:
         pass
