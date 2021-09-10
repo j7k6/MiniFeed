@@ -3,7 +3,8 @@
 from PIL import Image
 from flask import Flask, jsonify, request, send_from_directory
 from io import BytesIO
-from multiprocessing import Pool, Process
+from multiprocessing import Pool
+from threading import Thread
 from urllib.parse import urlparse
 from waitress import serve
 import base64
@@ -12,10 +13,8 @@ import favicon
 import feedparser
 import hashlib
 import os
-import pprint
 import re
 import requests
-import sqlite3
 import time
 import tldextract
 import yaml
@@ -25,50 +24,11 @@ num_procs = int(os.getenv("NUM_PROCS", os.cpu_count()-1))
 update_interval = int(os.getenv("UPDATE_INTERVAL", 60))
 server_port = int(os.getenv("SERVER_PORT", 5000))
 
-
-db = sqlite3.connect("minifeed.db", check_same_thread=False, timeout=10, isolation_level=None)
-db.row_factory = sqlite3.Row
+groups = []
+feeds = []
+items = []
 
 app = Flask(__name__)
-
-
-def get_items(feed_id=None, limit=100, since=0, group_id=None):
-    global db
-
-    cur = db.cursor()
-
-    rows = []
-
-    try:
-        if group_id is None:
-            if feed_id is None:
-                cur.execute("SELECT * FROM items WHERE added > ? ORDER BY added DESC LIMIT ?", (since, limit))
-            else:
-                cur.execute("SELECT * FROM items WHERE feed=? AND added > ? ORDER BY added DESC LIMIT ?", (feed_id, since, limit))
-        else:
-            cur.execute("SELECT * FROM items WHERE added > ? AND feed IN (SELECT id FROM feeds WHERE group_id=?) ORDER BY added DESC LIMIT ?", (since, group_id, limit))
-
-        rows = [dict(row) for row in cur.fetchall()]
-    except Exception as e:
-        pass
-
-    return rows
-
-
-def get_feeds():
-    global db
-
-    rows = []
-
-    try:
-        cur = db.cursor()
-        cur.execute("SELECT * FROM feeds ORDER BY title ASC")
-
-        rows = [dict(row) for row in cur.fetchall()]
-    except Exception as e:
-        pass
-
-    return rows
 
 
 def fetch_favicon(url):
@@ -115,115 +75,123 @@ def fetch_favicon(url):
     return favicon_base64
 
 
-def fetch_feed_info(feed_url, group_id):
-    global db
-
-    feed_id = hashlib.md5(feed_url.encode()).hexdigest()
-
+def fetch_feed_info(feed):
     try:
-        feed_parsed = feedparser.parse(feed_url)
+        feed_parsed = feedparser.parse(feed["url"])
         feed_title = feed_parsed.feed.title
-    except Exception as e:
-        print(f"Error fetching '{feed_url}'")
-        return False
+        favicon_url = feed_parsed.feed.link
 
-    url = feed_parsed.feed.link
+        if favicon_url == "":
+            favicon_url = feed["url"]
 
-    if url == "":
-        url = feed_url
-
-    favicon_base64 = fetch_favicon(url)
-
-    try:
-        db.execute("INSERT INTO feeds (id, url, title, group_id, favicon) VALUES (?, ?, ?, ?, ?)", (feed_id, feed_url, feed_title, group_id, favicon_base64))
-        print(f"Added '{feed_title}'")
-    except sqlite3.IntegrityError as e:
-        db.execute("UPDATE feeds SET title=?, group_id=?, favicon=? WHERE id=?", (feed_title, group_id, favicon_base64, feed_id))
-        print(f"Updated '{feed_title}'")
-
-
-def fetch_feed_items(feed_url):
-    global db
-
-    cur = db.cursor()
-
-    feed_id = hashlib.md5(feed_url.encode()).hexdigest()
-
-    try:
-        feed_parsed = feedparser.parse(feed_url)
-        feed_title = feed_parsed.feed.title
-    except Exception as e:
-        print(f"Error fetching '{feed_url}'")
-        return False
-
-    new_items = 0
-
-    for item in feed_parsed.entries:
         try:
-            item_id = hashlib.md5(item.link.encode()).hexdigest()
-            item_added = int(time.mktime((datetime.datetime.now()).timetuple()))
-
-            try:
-                item_published = int(time.strftime('%s', item.published_parsed))
-            except Exception as e:
-                item_published = item_added
-
-            try:
-                item_description = re.sub("<[^<]+?>", "", item.description)
-            except AttributeError as e:
-                try:
-                    item_description = item.title
-                except AttributeError as e:
-                    item_description = ""
-
-            try:
-                db.execute("INSERT INTO items (id, link, title, description, published, added, feed) VALUES (?, ?, ?, ?, ?, ?, ?)", (item_id, item.link, item.title, item_description, item_published, item_added, feed_id))
-
-                new_items += 1
-            except Exception as e:
-                pass
+            feed["title"] = feed_title
+            feed["favicon"] = fetch_favicon(favicon_url)
         except Exception as e:
             pass
 
-    if new_items > 0:
-        print(f"Fetched '{feed_title}' ({new_items})")
+        return feed
+    except Exception as e:
+        print(f"Error fetching '{feed['url']}'")
+
+        return {}
 
 
-def update_task(feeds, update_interval):
+def fetch_feed_items(feed):
+    items = []
+
+    if feed != {}:
+        try:
+            feed_parsed = feedparser.parse(feed["url"])
+
+            for entry in feed_parsed.entries:
+                try:
+                    item_id = hashlib.md5(entry.link.encode()).hexdigest()
+                    item_added = int(time.mktime((datetime.datetime.now()).timetuple()))
+
+                    try:
+                        item_published = int(time.strftime('%s', entry.published_parsed))
+                    except Exception as e:
+                        item_published = item_added
+
+                    try:
+                        item_description = re.sub("<[^<]+?>", "", entry.description)
+                    except AttributeError as e:
+                        try:
+                            item_description = entry.title
+                        except AttributeError as e:
+                            item_description = ""
+
+                    item = {
+                        "id": item_id,
+                        "feed": feed["id"],
+                        "group": feed["group"],
+                        "link": entry.link,
+                        "title": entry.title,
+                        "description": item_description,
+                        "published": item_published,
+                        "added": item_added
+                    }
+
+                    items.append(item)
+                except Exception as e:
+                    pass
+
+        except Exception as e:
+            print(f"Error fetching '{feed['url']}'")
+         
+    return items
+
+
+def update_task():
     while True:
         print("Updating Feeds...")
 
-        Pool(processes=num_procs).map(fetch_feed_items, feeds)
+        new_items = [item for sublist in Pool(processes=num_procs).map(fetch_feed_items, feeds) for item in sublist]
+        new_items_count = 0
+
+        for item in new_items:
+            if not item["id"] in [i["id"] for i in items]:
+                items.append(item)
+                new_items_count += 1
+
+        if new_items_count > 0:
+            print(f"[+{new_items_count}/{len(items)}]")
 
         time.sleep(update_interval)
 
 
 if __name__ == "__main__":
-    try:
-        db.execute("CREATE TABLE feeds (id TEXT UNIQUE PRIMARY KEY, url TEXT, title TEXT, group_id TEXT, favicon TEXT)")
-        db.execute("CREATE TABLE items (id TEXT UNIQUE PRIMARY KEY, link TEXT, title TEXT, description TEXT, published INTEGER, added INTEGER, feed TEXT)")
-    except sqlite3.OperationalError as e:
-        pass
-
     with open("feeds.yml") as stream:
         try:
-            feeds = yaml.safe_load(stream)["feeds"]
+            feeds_raw = yaml.safe_load(stream)["feeds"]
         except yaml.YAMLError as e:
             print(e)
 
-    feeds_queue = []
-    feed_info_queue = []
-    groups = []
+    feeds_pre = []
 
-    for group_id in feeds:
+    for group_id in feeds_raw:
         groups.append(group_id)
 
-        for feed in feeds[group_id]:
-            feed_info_queue.append((feed, group_id))
-            feeds_queue.append(feed)
+        for feed_url in feeds_raw[group_id]:
+            feed_id = hashlib.md5(feed_url.encode()).hexdigest()
 
-    Pool(processes=num_procs).starmap(fetch_feed_info, feed_info_queue)
-    Process(target=update_task, args=(feeds_queue, update_interval)).start()
+            feeds_pre.append({
+                "id": feed_id,
+                "group": group_id,
+                "url": feed_url
+            })
+        
+    print("Loading Feeds...")
+
+    feeds = list(filter(lambda feed: feed != {}, Pool(processes=num_procs).map(fetch_feed_info, feeds_pre)))
+
+    print(f"[{len(feeds)}]")
+     
+    Thread(target=update_task).start()
+
+    while len(items) == 0:
+        time.sleep(1)
 
     @app.route("/")
     def index():
@@ -235,7 +203,7 @@ if __name__ == "__main__":
 
     @app.route("/api/getFeeds", methods=["GET"])
     def app_get_feeds():
-        return jsonify(get_feeds())
+        return jsonify(feeds)
 
     @app.route("/api/getGroups", methods=["GET"])
     def app_get_groups():
@@ -244,13 +212,20 @@ if __name__ == "__main__":
     @app.route("/api/getItems", methods=["GET"])
     def api_get_items():
         feed_id = request.args.get("feed_id", default=None)
-        limit = request.args.get("limit", default=100)
         since = request.args.get("since", default=0)
         group_id = request.args.get("group_id", default=None)
+        
+        get_items = list(filter(lambda item: item["added"] > int(since), items))
 
-        return jsonify(get_items(feed_id, limit, since, group_id))
+        if feed_id:
+            get_items = list(filter(lambda item: item["feed"] == feed_id, get_items))
+
+        if group_id:
+            get_items = list(filter(lambda item: item["group"] == group_id, get_items))
+
+        get_items = sorted(get_items, key=lambda k: k["added"], reverse=True)
+        
+        return jsonify(get_items[:100])
 
     print("Ready!")
     serve(app, port=server_port)
-
-    db.close()

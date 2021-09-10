@@ -114,6 +114,7 @@ function getItems(since) {
     if (items.length > 0) {
       console.log(items.length);
       lastTimestamp = items[0].added;
+      items.sort((a, b) => b.published - a.published);
 
       if (since > 0) setItemCounter(items.length);
 
@@ -166,7 +167,7 @@ fetch('/api/getGroups').then(function(res) {
         `<div class="group group_${groupId}">
           <h3><a href="#/group/${groupId}">${groupId}</a></h3>
           <ul>
-          ${feeds.filter(feed => feed.group_id === groupId).map(feed =>
+          ${feeds.filter(feed => feed.group === groupId).map(feed =>
             `<li class="feed favicon feed_${feed.id}"><a href="#/feed/${feed.id}">${feed.title}</li>`     
           ).join('')}
           </ul>
