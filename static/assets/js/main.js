@@ -2,13 +2,14 @@
 
 const itemTypes = { 'group': 'group', 'feed': 'feed' };
 const docTitle = document.title;
+const itemsHtml = document.querySelector('.items');
 
 var lastTimestamp = 0;
 var showFeeds = false;
 var newItemsCount = 0;
 
 var groups, feeds;
-var params, itemType, itemTypeId;
+var params, itemType, itemTypeId, lastItemId;
 
 
 function getParams() {
@@ -94,56 +95,92 @@ function showItems(newItemType, newItemTypeId) {
 
 
 function getItems(since) {
-  let itemsHtml = document.querySelector('.items');
   let fetchUrl = `/api/getItems?since=${since}`;
 
   if (itemType !== 'all')
     fetchUrl = `${fetchUrl}&${itemTypes[itemType]}_id=${itemTypeId}`;
-
   if (since === 0)
     itemsHtml.innerHTML = '';
 
   fetch(fetchUrl).then(function(res) {
     return res.json();
   }).then(function(data) {
-    let items = data;
-    let lastScrollPos = window.scrollY;
-    let itemsHtmlStyle = window.getComputedStyle(itemsHtml);
-    let itemsHtmlHeightBefore = itemsHtml.offsetHeight + parseInt(itemsHtmlStyle.marginTop) + parseInt(itemsHtmlStyle.marginBottom);
-
-    if (items.length > 0) {
-      console.log(items.length);
-      lastTimestamp = items[0].added;
-      items.sort((a, b) => b.published - a.published);
-
-      if (since > 0) setItemCounter(items.length);
-
-      Array.from(document.querySelectorAll('article')).forEach((el) => el.classList.remove('new'));
-
-      itemsHtml.innerHTML =
-        `${items.map(item =>
-          `<article class="new">
-             <h5 class="feed_${item.feed} favicon">${feeds.find(feed => feed.id === item.feed).title}:</h5>
-             <h4><a href="${item.link}" target="_blank">${item.title}</a></h4>
-             <h6>${formatDate(item.published)}</h6>
-             <p>${item.description}</p>
-          </article>`
-        ).join('')}` + itemsHtml.innerHTML;
-
-      if (since > 0 && window.scrollY > 0) {
-        let itemsHtmlHeightAfter = itemsHtml.offsetHeight + parseInt(itemsHtmlStyle.marginTop) + parseInt(itemsHtmlStyle.marginBottom);
-        let itemsHtmlHeightDiff = itemsHtmlHeightAfter - itemsHtmlHeightBefore;
-
-        window.scrollTo(0, (lastScrollPos + itemsHtmlHeightDiff));
-      }
-    }
+    if (data.length > 0)
+      renderItems(data, since);
   }).catch(function(err) {
     console.log(err);
   });
 }
 
 
-if (!window.location.hash) window.location.hash = '#/all';
+function loadMore() {
+  if (itemsHtml.lastChild.id !== lastItemId) {
+    lastItemId = itemsHtml.lastChild.id;
+    let fetchUrl = `/api/getItems?after_item=${lastItemId}`;
+
+    if (itemType !== 'all')
+      fetchUrl = `${fetchUrl}&${itemTypes[itemType]}_id=${itemTypeId}`;
+
+    fetch(fetchUrl).then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      if (data.length > 0)
+        renderItems(data);
+    }).catch(function(err) {
+      console.log(err);
+    });
+  }
+}
+
+
+function renderItems(items, since=undefined) {
+  let lastScrollPos = window.scrollY;
+  let itemsHtmlStyle = window.getComputedStyle(itemsHtml);
+  let itemsHtmlHeightBefore = itemsHtml.offsetHeight + parseInt(itemsHtmlStyle.marginTop) + parseInt(itemsHtmlStyle.marginBottom);
+
+  Array.from(document.querySelectorAll('article')).forEach((el) => el.classList.remove('new'));
+
+  if (items.length > 0) {
+    console.log(items.length);
+    items.sort((a, b) => b.published - a.published);
+
+    let newItemsHtml =
+      `${items.map(item =>
+        `<article class="new" id="${item.id}">
+           <h5 class="feed_${item.feed} favicon">${feeds.find(feed => feed.id === item.feed).title}:</h5>
+           <h4><a href="${item.link}" target="_blank">${item.title}</a></h4>
+           <h6>${formatDate(item.published)}</h6>
+           <p>${item.description}</p>
+        </article>`
+      ).join('')}`;
+
+    if (since !== undefined) {
+      lastTimestamp = items[0].added;
+
+      if (since === 0)
+        itemsHtml.innerHTML = '';
+
+      itemsHtml.innerHTML = newItemsHtml + itemsHtml.innerHTML;
+
+      if (since > 0) {
+        setItemCounter(items.length);
+
+        if (window.scrollY > 0) {
+          let itemsHtmlHeightAfter = itemsHtml.offsetHeight + parseInt(itemsHtmlStyle.marginTop) + parseInt(itemsHtmlStyle.marginBottom);
+          let itemsHtmlHeightDiff = itemsHtmlHeightAfter - itemsHtmlHeightBefore;
+
+          window.scrollTo(0, (lastScrollPos + itemsHtmlHeightDiff));
+        }
+      }
+    } else {
+      itemsHtml.innerHTML = itemsHtml.innerHTML + newItemsHtml;
+    }
+  }
+}
+
+
+if (!window.location.hash)
+  window.location.hash = '#/all';
 
 fetch('/api/getGroups').then(function(res) {
   return res.json();
@@ -189,6 +226,12 @@ setInterval(function() {
 
 
 window.addEventListener('scroll', function() {
+  if (Math.max(document.body.offsetHeight - (window.pageYOffset + window.innerHeight), 0) === 0) {
+    loadMore();
+  }
+});
+
+window.addEventListener('scroll', function() {
   if (window.scrollY === 0) {
     newItemsCount = 0;
 
@@ -200,5 +243,6 @@ window.addEventListener('scroll', function() {
 window.addEventListener('hashchange', function() {
   getParams();
 
-  if (feeds) showItems(itemType, itemTypeId);
+  if (feeds)
+    showItems(itemType, itemTypeId);
 });
