@@ -47,7 +47,6 @@ body {
 
 .feeds .nav {
   user-select: none;
-  cursor: pointer;
   background: White;
 }
 
@@ -55,6 +54,7 @@ body {
   display: flex;
   justify-content: space-between;
   color: #aaa;
+  cursor: pointer;
 }
 
 .feeds .nav span {
@@ -193,5 +193,34 @@ body {
 
   .feeds > div:not(.nav) {
     display: none;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #222;
+    color: #eee;
+  }
+
+  a {
+    color: #3399ff;
+  }
+
+  @media screen and (min-width: 800px) {
+    .feeds div.nav {
+      border-bottom-color: #222;
+      border-top-color: #222;
+    }
+  }
+
+  @media screen and (max-width: 800px) {
+    .feeds {
+      border-bottom-color: #222;
+      border-top-color: #222;
+    }
+  }
+
+  .feeds .group, .feeds .nav, .items article {
+    background: #444;
   }
 }
