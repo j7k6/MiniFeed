@@ -143,8 +143,13 @@ function renderItems(items, since=undefined) {
   if (items.length > 0) {
     console.log(items.length);
 
-    if (since !== undefined)
+    if (since !== undefined) {
       lastTimestamp = items[0].added;
+
+      if (since === 0)
+        itemsHtml.innerHTML = '';
+    }
+
 
     items.sort((a, b) => b.published - a.published);
 
@@ -159,9 +164,6 @@ function renderItems(items, since=undefined) {
       ).join('')}`;
 
     if (since !== undefined) {
-      if (since === 0)
-        itemsHtml.innerHTML = '';
-
       itemsHtml.innerHTML = newItemsHtml + itemsHtml.innerHTML;
 
       if (since > 0) {
