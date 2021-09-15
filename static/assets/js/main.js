@@ -9,7 +9,7 @@ var showFeeds = false;
 var newItemsCount = 0;
 
 var groups, feeds;
-var params, itemType, itemTypeId, lastItemId;
+var params, itemType, itemTypeId;
 
 
 function getParams() {
@@ -113,48 +113,14 @@ function getItems(since) {
 }
 
 
-function loadMore() {
-  if (itemsHtml.lastChild.id !== lastItemId) {
-    lastItemId = itemsHtml.lastChild.id;
-    let fetchUrl = `/api/getItems?after_item=${lastItemId}`;
-
-    if (itemType !== 'all')
-      fetchUrl = `${fetchUrl}&${itemTypes[itemType]}_id=${itemTypeId}`;
-
-    fetch(fetchUrl).then(function(res) {
-      return res.json();
-    }).then(function(data) {
-      if (data.length > 0)
-        renderItems(data);
-    }).catch(function(err) {
-      console.log(err);
-    });
-  }
-}
-
-
-function renderItems(items, since=undefined) {
-  let lastScrollPos = window.scrollY;
-  let itemsHtmlStyle = window.getComputedStyle(itemsHtml);
-  let itemsHtmlHeightBefore = itemsHtml.offsetHeight + parseInt(itemsHtmlStyle.marginTop) + parseInt(itemsHtmlStyle.marginBottom);
-
+function renderItems(items, since=null) {
   Array.from(document.querySelectorAll('article')).forEach((el) => el.classList.remove('new'));
 
   if (items.length > 0) {
     console.log(items.length);
 
-    if (since !== undefined) {
-      lastTimestamp = items[0].added;
-
-      if (since === 0)
-        itemsHtml.innerHTML = '';
-    }
-
-
-    items.sort((a, b) => b.published - a.published);
-
     let newItemsHtml =
-      `${items.map(item =>
+      `${Array.from(items).sort((a, b) => b.published - a.published).map(item =>
         `<article class="new" id="${item.id}">
            <h5 class="feed_${item.feed} favicon">${feeds.find(feed => feed.id === item.feed).title}:</h5>
            <h4><a href="${item.link}" target="_blank">${item.title}</a></h4>
@@ -163,7 +129,16 @@ function renderItems(items, since=undefined) {
         </article>`
       ).join('')}`;
 
-    if (since !== undefined) {
+    if (since !== null) {
+      let lastScrollPos = window.scrollY;
+      let itemsHtmlStyle = window.getComputedStyle(itemsHtml);
+      let itemsHtmlHeightBefore = itemsHtml.offsetHeight + parseInt(itemsHtmlStyle.marginTop) + parseInt(itemsHtmlStyle.marginBottom);
+
+      lastTimestamp = items[0].added;
+
+      if (since === 0)
+        itemsHtml.innerHTML = '';
+
       itemsHtml.innerHTML = newItemsHtml + itemsHtml.innerHTML;
 
       if (since > 0) {
@@ -227,13 +202,6 @@ fetch('/api/getGroups').then(function(res) {
 setInterval(function() { 
   getItems(lastTimestamp); 
 }, 5000);
-
-
-window.addEventListener('scroll', function() {
-  if (Math.max(document.body.offsetHeight - (window.pageYOffset + window.innerHeight), 0) === 0) {
-    loadMore();
-  }
-});
 
 window.addEventListener('scroll', function() {
   if (window.scrollY === 0) {

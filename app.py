@@ -214,7 +214,7 @@ if __name__ == "__main__":
         feed_id = request.args.get("feed_id", default=None)
         group_id = request.args.get("group_id", default=None)
         since = request.args.get("since", default=0)
-        after_item = request.args.get("after_item", default=None)
+        all_items = request.args.get("all_items", default=False)
         
         get_items = list(filter(lambda item: item["added"] > int(since), items))
 
@@ -226,15 +226,7 @@ if __name__ == "__main__":
 
         get_items = sorted(get_items, key=lambda k: k["added"], reverse=True)
 
-        if after_item is not None:
-            for item in get_items:
-                item_id = item["id"]
-                get_items.remove(item)
-
-                if item_id == after_item:
-                    break
-
-        return jsonify(get_items[:100])
+        return jsonify(get_items[:50])
 
     print("Ready!")
     serve(app, port=server_port)

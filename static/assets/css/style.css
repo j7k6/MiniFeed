@@ -13,6 +13,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
 } 
 
+a {
+  color: #0099ff;
+}
+
 .wrapper:after {
   display: table;
   content: '';
@@ -200,10 +204,6 @@ body {
   body {
     background: #222;
     color: #eee;
-  }
-
-  a {
-    color: #3399ff;
   }
 
   @media screen and (min-width: 800px) {
