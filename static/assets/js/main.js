@@ -8,8 +8,26 @@ var lastTimestamp = 0;
 var showFeeds = false;
 var newItemsCount = 0;
 
+var darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? true : false;
+
 var groups, feeds;
 var params, itemType, itemTypeId;
+
+
+function toggleMode() {
+  darkMode = !darkMode;
+  setMode();   
+}
+
+function setMode() {
+  if (darkMode) {
+    document.body.classList.add('dark');
+    document.querySelector('.mode').innerHTML = '&#9728;';
+  } else {
+    document.body.classList.remove('dark');
+    document.querySelector('.mode').innerHTML = '&#9790;';
+  }
+}
 
 
 function getParams() {
@@ -157,6 +175,8 @@ function renderItems(items, since=null) {
   }
 }
 
+
+setMode();
 
 if (!window.location.hash)
   window.location.hash = '#/all';

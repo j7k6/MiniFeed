@@ -13,6 +13,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 } 
 
+body.dark {
+  background: #222;
+  color: #eee;
+}
+
 a {
   color: #0099ff;
 }
@@ -63,7 +68,7 @@ a {
 
 .feeds .nav span {
   display: inline-block;
-  padding: 1rem;
+  padding: 1rem 0 1rem 1rem;
 }
 
 .feeds .nav .info {
@@ -143,6 +148,10 @@ a {
   overflow: hidden;
 }
 
+body.dark .feeds .group, body.dark .feeds .nav, body.dark .items article {
+  background: #444;
+}
+
 @media screen and (min-width: 800px) {
   .feeds div.nav {
     position: fixed;
@@ -152,6 +161,11 @@ a {
     top: 0;
     border-bottom: 2rem solid #f4f4f4;
     border-top: 2rem solid #f4f4f4;
+  }
+
+  body.dark .feeds div.nav {
+    border-bottom-color: #222;
+    border-top-color: #222;
   }
 
   .feeds .all {
@@ -183,6 +197,11 @@ a {
     border-bottom: 2rem solid #f4f4f4;
   }
 
+  body.dark .feeds {
+    border-bottom-color: #222;
+    border-top-color: #222;
+  }
+
   .feeds.show > div:not(.nav) {
     display: block !important;
   }
@@ -197,30 +216,5 @@ a {
 
   .feeds > div:not(.nav) {
     display: none;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  body {
-    background: #222;
-    color: #eee;
-  }
-
-  @media screen and (min-width: 800px) {
-    .feeds div.nav {
-      border-bottom-color: #222;
-      border-top-color: #222;
-    }
-  }
-
-  @media screen and (max-width: 800px) {
-    .feeds {
-      border-bottom-color: #222;
-      border-top-color: #222;
-    }
-  }
-
-  .feeds .group, .feeds .nav, .items article {
-    background: #444;
   }
 }
