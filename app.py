@@ -226,7 +226,7 @@ if __name__ == "__main__":
 
         get_items = sorted(get_items, key=lambda k: k["added"], reverse=True)
 
-        return jsonify(get_items[:50])
+        return jsonify(get_items[:100])
 
     print("Ready!")
     serve(app, port=server_port)
