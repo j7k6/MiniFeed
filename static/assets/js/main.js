@@ -22,7 +22,7 @@ function toggleMode() {
 function setMode() {
   if (darkMode) {
     document.body.classList.add('dark');
-    document.querySelector('.mode').innerHTML = '&#9728;';
+    document.querySelector('.mode').innerHTML = '&#9788;';
   } else {
     document.body.classList.remove('dark');
     document.querySelector('.mode').innerHTML = '&#9790;';
