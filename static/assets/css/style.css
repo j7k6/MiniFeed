@@ -74,6 +74,7 @@ a {
 
 
 .feeds .nav .info {
+  margin-left: .5rem;
   overflow: hidden;
   white-space: nowrap;
 }
