@@ -90,23 +90,30 @@ a {
   display: flex;
   justify-content: space-between;
   color: #aaa;
-  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
   padding: 0 .5rem;
 }
 
 .feeds .nav span {
   display: table-cell;
-  padding: 1rem .5rem;
+  padding: 1rem 0;
   line-height: 1;
   vertical-align: middle;
+  text-align: center;
+  width: 3rem;
 }
 
+.feeds .nav .menu, .feeds .nav .mode, .feeds .nav .top, .feeds .nav .info {
+  cursor: pointer;
+}
 
 .feeds .nav .info {
   margin-left: auto;
   overflow: hidden;
   white-space: nowrap;
   margin-right: .5rem;
+  width: auto;
 }
 
 .feeds .nav .counter {
@@ -114,6 +121,7 @@ a {
   font-style: italic;
   margin-right: 1rem;
   font-size: 80%;
+  width: auto;
 }
 
 .feeds ul li {

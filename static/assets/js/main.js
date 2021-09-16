@@ -35,11 +35,15 @@ function getParams() {
 
 
 function toggleFeeds() {
-  let feedsBlock = document.querySelector('.feeds');
-
-  (showFeeds) ? feedsBlock.classList.remove('show') : feedsBlock.classList.add('show');
-
   showFeeds = !showFeeds;
+
+  if (showFeeds) {
+    document.querySelector('.feeds').classList.add('show');
+    document.querySelector('.menu').innerHTML = '&#215;';
+  } else {
+    document.querySelector('.feeds').classList.remove('show');
+    document.querySelector('.menu').innerHTML = '&#9776;';
+  }
 
   window.scrollTo(0, 0);
 }
