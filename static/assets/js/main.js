@@ -99,7 +99,8 @@ function showItems(newItemType, newItemTypeId) {
   itemType = newItemType;
   itemTypeId = newItemTypeId;
   newItemsCount = 0;
-  showFeeds = false;
+  showFeeds = true;
+  toggleFeeds();
 
   Array.from(document.querySelectorAll('.active')).forEach((el) => el.classList.remove('active'));
 
