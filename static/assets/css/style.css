@@ -74,15 +74,15 @@ a {
 
 
 .feeds .nav .info {
-  margin-left: .5rem;
+  margin-left: 1rem;
   overflow: hidden;
   white-space: nowrap;
+  flex: 50%;
+  text-align: right;
 }
 
 .feeds .nav .counter {
   font-weight: normal;
-  flex: 10%;
-  text-align: right;
   font-style: italic;
 }
 

@@ -14,12 +14,9 @@ var groups, feeds;
 var params, itemType, itemTypeId;
 
 
-function toggleMode() {
-  darkMode = !darkMode;
-  setMode();   
-}
+function setMode(mode) {
+  darkMode = mode;
 
-function setMode() {
   if (darkMode) {
     document.body.classList.add('dark');
     document.querySelector('.mode').innerHTML = '&#9788;';
@@ -176,7 +173,7 @@ function renderItems(items, since=null) {
 }
 
 
-setMode();
+setMode(darkMode);
 
 if (!window.location.hash)
   window.location.hash = '#/all';
