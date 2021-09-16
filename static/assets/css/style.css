@@ -101,7 +101,7 @@ a {
   line-height: 1;
   vertical-align: middle;
   text-align: center;
-  width: 2rem;
+  min-width: 2rem;
 }
 
 .feeds .nav .menu, .feeds .nav .mode, .feeds .nav .top, .feeds .nav .info {
