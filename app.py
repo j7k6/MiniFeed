@@ -236,7 +236,7 @@ if __name__ == "__main__":
                 if item_id == after_item:
                     break
 
-        return jsonify(get_items[:100])
+        return jsonify(get_items[:50])
 
     print("Ready!")
     serve(app, port=server_port)
