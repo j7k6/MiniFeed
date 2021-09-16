@@ -7,6 +7,8 @@ const itemsHtml = document.querySelector('.items');
 var lastTimestamp = 0;
 var showFeeds = false;
 var newItemsCount = 0;
+var lastItemId = null;
+var endOfFeed = false;
 
 var darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? true : false;
 
@@ -98,6 +100,8 @@ function formatDate(date) {
 function showItems(newItemType, newItemTypeId) {
   itemType = newItemType;
   itemTypeId = newItemTypeId;
+  lastItemId = null;
+  endOfFeed = false;
   newItemsCount = 0;
   showFeeds = true;
   toggleFeeds();
@@ -133,10 +137,38 @@ function getItems(since) {
 }
 
 
+function loadMore() {
+  if (!endOfFeed) {
+    let fetchUrl = `/api/getItems?after_item=${lastItemId}`;
+
+    if (itemType !== 'all')
+      fetchUrl = `${fetchUrl}&${itemTypes[itemType]}_id=${itemTypeId}`;
+
+    fetch(fetchUrl).then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      if (data.length > 0)
+        renderItems(data);
+    }).catch(function(err) {
+      console.log(err);
+    });
+  }
+}
+
+
 function renderItems(items, since=null) {
   Array.from(document.querySelectorAll('article')).forEach((el) => el.classList.remove('new'));
 
   if (items.length > 0) {
+    if (since === null || since === 0) {
+      if (items[items.length-1].id === lastItemId) {
+        endOfFeed = true;
+        return;
+      }
+
+      lastItemId = items[items.length-1].id;
+    }
+
     console.log(items.length);
 
     let newItemsHtml =
@@ -224,6 +256,13 @@ fetch('/api/getGroups').then(function(res) {
 setInterval(function() { 
   getItems(lastTimestamp); 
 }, 5000);
+
+
+window.addEventListener('scroll', function() {
+  if (Math.max(document.body.offsetHeight - (window.pageYOffset + window.innerHeight), 0) < 5) {
+    loadMore();
+  }
+});
 
 window.addEventListener('scroll', function() {
   if (window.scrollY === 0) {

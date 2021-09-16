@@ -215,6 +215,7 @@ if __name__ == "__main__":
         group_id = request.args.get("group_id", default=None)
         since = request.args.get("since", default=0)
         all_items = request.args.get("all_items", default=False)
+        after_item = request.args.get("after_item", default=None)
         
         get_items = list(filter(lambda item: item["added"] > int(since), items))
 
@@ -225,6 +226,18 @@ if __name__ == "__main__":
             get_items = list(filter(lambda item: item["group"] == group_id, get_items))
 
         get_items = sorted(get_items, key=lambda k: k["added"], reverse=True)
+        
+
+        if after_item is not None:
+            print(len(get_items))
+            for item in get_items:
+                item_id = item["id"]
+                get_items.remove(item)
+
+                if item_id == after_item:
+                    break
+
+            print(len(get_items))
 
         return jsonify(get_items[:100])
 
