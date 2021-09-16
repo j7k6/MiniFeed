@@ -229,15 +229,12 @@ if __name__ == "__main__":
         
 
         if after_item is not None:
-            print(len(get_items))
             for item in get_items:
                 item_id = item["id"]
                 get_items.remove(item)
 
                 if item_id == after_item:
                     break
-
-            print(len(get_items))
 
         return jsonify(get_items[:100])
 
