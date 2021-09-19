@@ -215,10 +215,10 @@ if __name__ == "__main__":
         feed_id = request.args.get("feed_id", default=None)
         group_id = request.args.get("group_id", default=None)
         since = request.args.get("since", default=0)
-        all_items = request.args.get("all_items", default=False)
-        after_item = request.args.get("after_item", default=None)
+        after = request.args.get("after", default=None)
         
         get_items = list(filter(lambda item: item["added"] > int(since), items))
+        get_items = sorted(get_items, key=lambda k: k["added"], reverse=True)
 
         if feed_id:
             get_items = list(filter(lambda item: item["feed"] == feed_id, get_items))
@@ -226,18 +226,13 @@ if __name__ == "__main__":
         if group_id:
             get_items = list(filter(lambda item: item["group"] == group_id, get_items))
 
-        get_items = sorted(get_items, key=lambda k: k["added"], reverse=True)
-        
-        if after_item is not None:
+        if after is not None:
             try:
-                get_items = get_items[[x["id"] for x in get_items].index(after_item)+1:]
+                get_items = get_items[[x["id"] for x in get_items].index(after)+1:]
             except ValueError as e:
                 get_items = []
 
-        if all_items is False:
-            get_items = get_items[:50]
-
-        return jsonify(get_items)
+        return jsonify(get_items[:50])
 
     print("Ready!")
     serve(app, port=server_port)

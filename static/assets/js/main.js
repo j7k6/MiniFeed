@@ -9,6 +9,7 @@ var showFeeds = false;
 var newItemsCount = 0;
 var lastItemId = null;
 var toggleScrollPos = null;
+var endOfFeed = false;
 
 var darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? true : false;
 
@@ -118,6 +119,7 @@ function showItems(newItemType, newItemTypeId) {
   lastItemId = null;
   newItemsCount = 0;
   showFeeds = true;
+  endOfFeed = false;
   toggleFeeds();
 
   Array.from(document.querySelectorAll('.active')).forEach((el) => el.classList.remove('active'));
@@ -153,19 +155,24 @@ function getItems(since) {
 
 
 function loadMore() {
-  let fetchUrl = `/api/getItems?after_item=${lastItemId}`;
+  if (!endOfFeed && lastItemId !== null) {
+    let fetchUrl = `/api/getItems?after=${lastItemId}`;
 
-  if (itemType !== 'all')
-    fetchUrl = `${fetchUrl}&${itemTypes[itemType]}_id=${itemTypeId}`;
+    if (itemType !== 'all')
+      fetchUrl = `${fetchUrl}&${itemTypes[itemType]}_id=${itemTypeId}`;
 
-  fetch(fetchUrl).then(function(res) {
-    return res.json();
-  }).then(function(data) {
-    if (data.length > 0)
-      renderItems(data);
-  }).catch(function(err) {
-    console.log(err);
-  });
+    fetch(fetchUrl).then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      if (data.length > 0) {
+        renderItems(data);
+      } else {
+        endOfFeed = true;
+      }
+    }).catch(function(err) {
+      console.log(err);
+    });
+  }
 }
 
 
