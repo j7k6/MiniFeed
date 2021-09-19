@@ -55,12 +55,12 @@ function toggleFeeds() {
 }
 
 
-function scrollToTop(scrollPos=0) {
+function scrollToTop() {
   const c  = document.documentElement.scrollTop || document.body.scrollTop;
 
   if (c > 0) {
     window.requestAnimationFrame(scrollToTop);
-    window.scrollTo(scrollPos, c - (c / 8));
+    window.scrollTo(0, c - (c / 8));
   }
 }
 
