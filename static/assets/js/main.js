@@ -8,6 +8,7 @@ var lastTimestamp = 0;
 var showFeeds = false;
 var newItemsCount = 0;
 var lastItemId = null;
+var toggleScrollPos = null;
 
 var darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? true : false;
 
@@ -39,14 +40,28 @@ function toggleFeeds() {
   showFeeds = !showFeeds;
 
   if (showFeeds) {
+    toggleScrollPos = window.scrollY;
+
+    window.scrollTo(0, 0);
+
     document.querySelector('.feeds').classList.add('show');
     document.querySelector('.menu').innerHTML = '&#215;';
   } else {
     document.querySelector('.feeds').classList.remove('show');
     document.querySelector('.menu').innerHTML = '&#9776;';
-  }
 
-  window.scrollTo(0, 0);
+    window.scrollTo(0, toggleScrollPos);
+  }
+}
+
+
+function scrollToTop() {
+  const c  = document.documentElement.scrollTop || document.body.scrollTop;
+
+  if (c > 0) {
+    window.requestAnimationFrame(scrollToTop);
+    window.scrollTo(0, c - (c / 8));
+  }
 }
 
 
@@ -108,8 +123,9 @@ function showItems(newItemType, newItemTypeId) {
 
   document.querySelector((itemType === 'all') ? '.group.all' : `.${itemType}.${itemType}_${itemTypeId}`).classList.add('active');
   document.querySelector('.feeds').classList.remove('show');
-  window.scrollTo(0, 0);
 
+
+  scrollToTop();
   setItemCounter(0)
   setNavInfo(itemType, itemTypeId);
   getItems(0);
@@ -168,7 +184,7 @@ function renderItems(items, since=null) {
 
   let newItemsHtml =
     `${Array.from(items).sort((a, b) => b.published - a.published).map(item =>
-      `<article class="new" id="${item.id}">
+      `<article ${(since !== null) ? 'class="new"' : ''} id="${item.id}">
          <h5 class="feed_${item.feed} favicon">${feeds.find(feed => feed.id === item.feed).title}:</h5>
          <h4><a href="${item.link}" target="_blank">${item.title}</a></h4>
          <h6>${formatDate(item.published)}</h6>
