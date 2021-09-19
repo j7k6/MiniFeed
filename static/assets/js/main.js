@@ -94,12 +94,13 @@ function setNavInfo(itemType, itemTypeId) {
 
 
 function setItemCounter(newItems) {
-  let counterValue;
-
   newItemsCount += newItems;
 
-  counterValue = (newItemsCount > 99) ? '99+' : newItemsCount;
-  counterValue = (newItemsCount > 0) ? counterValue : '';
+  let counterValue = '';
+
+  if (newItemsCount > 0) {
+    counterValue = (newItemsCount > 99) ? '99+' : newItemsCount;
+  }
 
   document.querySelector('.counter').innerText = counterValue;
   document.title = `${docTitle}${(newItemsCount > 0) ? ` (${newItemsCount})` : ''}`;
@@ -281,9 +282,7 @@ window.addEventListener('scroll', function() {
 window.addEventListener('scroll', function() {
   if (window.scrollY === 0) {
     newItemsCount = 0;
-
-    document.querySelector('.counter').innerText = '';
-    document.title = docTitle;
+    setItemCounter(0);
   }
 });
 
