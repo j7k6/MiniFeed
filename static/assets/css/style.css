@@ -180,6 +180,11 @@ a {
   -webkit-box-orient: vertical;
 }
 
+.items article h5 a {
+  text-decoration: none;
+  color: inherit;
+}
+
 .items article h6 {
   font-weight: normal;
   color: #aaa;

@@ -178,8 +178,8 @@ function renderItems(items, since=null) {
 
   const newItemsHtml =
     `${Array.from(items).sort((a, b) => b.published - a.published).map(item =>
-      `<article ${(since !== null && since !== 0) ? 'class="new"' : ''} id="${item.id}">
-         <h5 class="feed_${item.feed} favicon">${feeds.find(feed => feed.id === item.feed).title}:</h5>
+      `<article ${(since !== null && since !== 0) ? 'class="new"' : ''}>
+         <h5><a href="#/feed/${item.feed}" class="feed_${item.feed} favicon">${feeds.find(feed => feed.id === item.feed).title}</a></h5>
          <h4><a href="${item.link}" target="_blank">${item.title}</a></h4>
          <h6>${formatDate(item.published)}</h6>
          <p>${item.description}</p>
