@@ -98,7 +98,7 @@ def fetch_feed_info(feed):
 
 
 def fetch_feed_items(feed):
-    items = []
+    new_items = []
 
     if feed != {}:
         try:
@@ -122,7 +122,7 @@ def fetch_feed_items(feed):
                         except AttributeError as e:
                             item_description = ""
 
-                    item = {
+                    new_item = {
                         "id": item_id,
                         "feed": feed["id"],
                         "group": feed["group"],
@@ -133,27 +133,28 @@ def fetch_feed_items(feed):
                         "added": item_added
                     }
 
-                    items.append(item)
+                    new_items.append(new_item)
                 except Exception as e:
                     pass
 
         except Exception as e:
             print(f"Error fetching '{feed['url']}'")
          
-    return items
+    return new_items
 
 
 def update_task():
     while True:
         print("Updating Feeds...")
 
-        new_items = [item for sublist in Pool(processes=num_procs).map(fetch_feed_items, feeds) for item in sublist]
-        new_items_count = 0
+        new_items = Pool(processes=num_procs).map(fetch_feed_items, feeds)
+        old_items_count = len(items)
 
-        for item in new_items:
+        for item in [item for item_list in new_items for item in item_list]:
             if not item["id"] in [i["id"] for i in items]:
                 items.append(item)
-                new_items_count += 1
+
+        new_items_count = len(items) - old_items_count
 
         if new_items_count > 0:
             print(f"[+{new_items_count}/{len(items)}]")
@@ -227,16 +228,16 @@ if __name__ == "__main__":
 
         get_items = sorted(get_items, key=lambda k: k["added"], reverse=True)
         
-
         if after_item is not None:
-            for item in get_items:
-                item_id = item["id"]
-                get_items.remove(item)
+            try:
+                get_items = get_items[[x["id"] for x in get_items].index(after_item)+1:]
+            except ValueError as e:
+                get_items = []
 
-                if item_id == after_item:
-                    break
+        if all_items is False:
+            get_items = get_items[:50]
 
-        return jsonify(get_items[:50])
+        return jsonify(get_items)
 
     print("Ready!")
     serve(app, port=server_port)

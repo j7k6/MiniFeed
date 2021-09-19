@@ -8,7 +8,6 @@ var lastTimestamp = 0;
 var showFeeds = false;
 var newItemsCount = 0;
 var lastItemId = null;
-var endOfFeed = false;
 
 var darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? true : false;
 
@@ -101,7 +100,6 @@ function showItems(newItemType, newItemTypeId) {
   itemType = newItemType;
   itemTypeId = newItemTypeId;
   lastItemId = null;
-  endOfFeed = false;
   newItemsCount = 0;
   showFeeds = true;
   toggleFeeds();
@@ -138,74 +136,70 @@ function getItems(since) {
 
 
 function loadMore() {
-  if (!endOfFeed) {
-    let fetchUrl = `/api/getItems?after_item=${lastItemId}`;
+  let fetchUrl = `/api/getItems?after_item=${lastItemId}`;
 
-    if (itemType !== 'all')
-      fetchUrl = `${fetchUrl}&${itemTypes[itemType]}_id=${itemTypeId}`;
+  if (itemType !== 'all')
+    fetchUrl = `${fetchUrl}&${itemTypes[itemType]}_id=${itemTypeId}`;
 
-    fetch(fetchUrl).then(function(res) {
-      return res.json();
-    }).then(function(data) {
-      if (data.length > 0)
-        renderItems(data);
-    }).catch(function(err) {
-      console.log(err);
-    });
-  }
+  fetch(fetchUrl).then(function(res) {
+    return res.json();
+  }).then(function(data) {
+    if (data.length > 0) {
+      let items = data;
+
+      console.log(lastItemId);
+
+      renderItems(items);
+    }
+  }).catch(function(err) {
+    console.log(err);
+  });
 }
 
 
 function renderItems(items, since=null) {
-  Array.from(document.querySelectorAll('article')).forEach((el) => el.classList.remove('new'));
+  if (since !== null && since !== 0) {
+    Array.from(document.querySelectorAll('article')).forEach((el) => el.classList.remove('new'));
+  } else {
+    lastItemId = items[items.length-1].id;
+  }
 
-  if (items.length > 0) {
-    if (since === null || since === 0) {
-      if (items[items.length-1].id === lastItemId) {
-        endOfFeed = true;
-        return;
+  console.log(items.length);
+
+  let newItemsHtml =
+    `${Array.from(items).sort((a, b) => b.published - a.published).map(item =>
+      `<article class="new" id="${item.id}">
+         <h5 class="feed_${item.feed} favicon">${feeds.find(feed => feed.id === item.feed).title}:</h5>
+         <h4><a href="${item.link}" target="_blank">${item.title}</a></h4>
+         <h6>${formatDate(item.published)}</h6>
+         <p>${item.description}</p>
+      </article>`
+    ).join('')}`;
+
+  if (since !== null) {
+    let lastScrollPos = window.scrollY;
+    let itemsHtmlStyle = window.getComputedStyle(itemsHtml);
+    let itemsHtmlHeightBefore = itemsHtml.offsetHeight + parseInt(itemsHtmlStyle.marginTop) + parseInt(itemsHtmlStyle.marginBottom);
+
+    lastTimestamp = items[0].added;
+
+    if (since === 0)
+      itemsHtml.innerHTML = '';
+
+    itemsHtml.innerHTML = newItemsHtml + itemsHtml.innerHTML;
+
+    if (since > 0) {
+      setItemCounter(items.length);
+
+      if (window.scrollY > 0) {
+        let itemsHtmlHeightAfter = itemsHtml.offsetHeight + parseInt(itemsHtmlStyle.marginTop) + parseInt(itemsHtmlStyle.marginBottom);
+        let itemsHtmlHeightDiff = itemsHtmlHeightAfter - itemsHtmlHeightBefore;
+
+        window.scrollTo(0, (lastScrollPos + itemsHtmlHeightDiff));
       }
-
-      lastItemId = items[items.length-1].id;
     }
-
-    console.log(items.length);
-
-    let newItemsHtml =
-      `${Array.from(items).sort((a, b) => b.published - a.published).map(item =>
-        `<article class="new" id="${item.id}">
-           <h5 class="feed_${item.feed} favicon">${feeds.find(feed => feed.id === item.feed).title}:</h5>
-           <h4><a href="${item.link}" target="_blank">${item.title}</a></h4>
-           <h6>${formatDate(item.published)}</h6>
-           <p>${item.description}</p>
-        </article>`
-      ).join('')}`;
-
-    if (since !== null) {
-      let lastScrollPos = window.scrollY;
-      let itemsHtmlStyle = window.getComputedStyle(itemsHtml);
-      let itemsHtmlHeightBefore = itemsHtml.offsetHeight + parseInt(itemsHtmlStyle.marginTop) + parseInt(itemsHtmlStyle.marginBottom);
-
-      lastTimestamp = items[0].added;
-
-      if (since === 0)
-        itemsHtml.innerHTML = '';
-
-      itemsHtml.innerHTML = newItemsHtml + itemsHtml.innerHTML;
-
-      if (since > 0) {
-        setItemCounter(items.length);
-
-        if (window.scrollY > 0) {
-          let itemsHtmlHeightAfter = itemsHtml.offsetHeight + parseInt(itemsHtmlStyle.marginTop) + parseInt(itemsHtmlStyle.marginBottom);
-          let itemsHtmlHeightDiff = itemsHtmlHeightAfter - itemsHtmlHeightBefore;
-
-          window.scrollTo(0, (lastScrollPos + itemsHtmlHeightDiff));
-        }
-      }
-    } else {
-      itemsHtml.innerHTML = itemsHtml.innerHTML + newItemsHtml;
-    }
+  } else {
+    itemsHtml.innerHTML = itemsHtml.innerHTML + newItemsHtml;
   }
 }
 
@@ -259,7 +253,7 @@ setInterval(function() {
 
 
 window.addEventListener('scroll', function() {
-  if (Math.max(document.body.offsetHeight - (window.pageYOffset + window.innerHeight), 0) < 5) {
+  if (Math.max(document.body.offsetHeight - (window.pageYOffset + window.innerHeight), 0) < 1) {
     loadMore();
   }
 });
