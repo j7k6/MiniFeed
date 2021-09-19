@@ -55,12 +55,12 @@ function toggleFeeds() {
 }
 
 
-function scrollToTop() {
+function scrollToTop(scrollPos=0) {
   const c  = document.documentElement.scrollTop || document.body.scrollTop;
 
   if (c > 0) {
     window.requestAnimationFrame(scrollToTop);
-    window.scrollTo(0, c - (c / 8));
+    window.scrollTo(scrollPos, c - (c / 8));
   }
 }
 
@@ -160,13 +160,8 @@ function loadMore() {
   fetch(fetchUrl).then(function(res) {
     return res.json();
   }).then(function(data) {
-    if (data.length > 0) {
-      let items = data;
-
-      console.log(lastItemId);
-
-      renderItems(items);
-    }
+    if (data.length > 0)
+      renderItems(data);
   }).catch(function(err) {
     console.log(err);
   });
@@ -174,6 +169,8 @@ function loadMore() {
 
 
 function renderItems(items, since=null) {
+  let lastScrollPos = window.scrollY;
+
   if (since !== null && since !== 0) {
     Array.from(document.querySelectorAll('article')).forEach((el) => el.classList.remove('new'));
   } else {
@@ -193,7 +190,6 @@ function renderItems(items, since=null) {
     ).join('')}`;
 
   if (since !== null) {
-    let lastScrollPos = window.scrollY;
     let itemsHtmlStyle = window.getComputedStyle(itemsHtml);
     let itemsHtmlHeightBefore = itemsHtml.offsetHeight + parseInt(itemsHtmlStyle.marginTop) + parseInt(itemsHtmlStyle.marginBottom);
 
