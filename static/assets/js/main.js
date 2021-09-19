@@ -66,7 +66,7 @@ function scrollToTop() {
 
 
 function setNavInfo(itemType, itemTypeId) {
-  let info = document.querySelector('.info');
+  const info = document.querySelector('.info');
 
   info.className = 'info';
 
@@ -80,12 +80,13 @@ function setNavInfo(itemType, itemTypeId) {
       break;
 
     case 'feed':
-      let feed = feeds.find(feed => feed.id === itemTypeId)
+      const feed = feeds.find(feed => feed.id === itemTypeId)
 
       info.innerHTML = feed.title;
       info.classList.add(`feed_${itemTypeId}`);
 
-      if (feed.favicon !== '') info.classList.add('favicon');
+      if (feed.favicon !== '')
+        info.classList.add('favicon');
       break;
   }
 }
@@ -169,19 +170,15 @@ function loadMore() {
 
 
 function renderItems(items, since=null) {
-  let lastScrollPos = window.scrollY;
+  console.log(items.length);
 
-  if (since !== null && since !== 0) {
-    Array.from(document.querySelectorAll('article')).forEach((el) => el.classList.remove('new'));
-  } else {
+  if (since === null || since === 0) {
     lastItemId = items[items.length-1].id;
   }
 
-  console.log(items.length);
-
-  let newItemsHtml =
+  const newItemsHtml =
     `${Array.from(items).sort((a, b) => b.published - a.published).map(item =>
-      `<article ${(since !== null) ? 'class="new"' : ''} id="${item.id}">
+      `<article ${(since !== null && since !== 0) ? 'class="new"' : ''} id="${item.id}">
          <h5 class="feed_${item.feed} favicon">${feeds.find(feed => feed.id === item.feed).title}:</h5>
          <h4><a href="${item.link}" target="_blank">${item.title}</a></h4>
          <h6>${formatDate(item.published)}</h6>
@@ -190,13 +187,17 @@ function renderItems(items, since=null) {
     ).join('')}`;
 
   if (since !== null) {
-    let itemsHtmlStyle = window.getComputedStyle(itemsHtml);
-    let itemsHtmlHeightBefore = itemsHtml.offsetHeight + parseInt(itemsHtmlStyle.marginTop) + parseInt(itemsHtmlStyle.marginBottom);
+    const lastScrollPos = window.scrollY;
+    const itemsHtmlStyle = window.getComputedStyle(itemsHtml);
+    const itemsHtmlHeightBefore = itemsHtml.offsetHeight + parseInt(itemsHtmlStyle.marginTop) + parseInt(itemsHtmlStyle.marginBottom);
 
     lastTimestamp = items[0].added;
 
-    if (since === 0)
+    if (since === 0) {
       itemsHtml.innerHTML = '';
+    } else {
+      Array.from(document.querySelectorAll('article')).forEach((el) => el.classList.remove('new'));
+    }
 
     itemsHtml.innerHTML = newItemsHtml + itemsHtml.innerHTML;
 
@@ -204,8 +205,8 @@ function renderItems(items, since=null) {
       setItemCounter(items.length);
 
       if (window.scrollY > 0) {
-        let itemsHtmlHeightAfter = itemsHtml.offsetHeight + parseInt(itemsHtmlStyle.marginTop) + parseInt(itemsHtmlStyle.marginBottom);
-        let itemsHtmlHeightDiff = itemsHtmlHeightAfter - itemsHtmlHeightBefore;
+        const itemsHtmlHeightAfter = itemsHtml.offsetHeight + parseInt(itemsHtmlStyle.marginTop) + parseInt(itemsHtmlStyle.marginBottom);
+        const itemsHtmlHeightDiff = itemsHtmlHeightAfter - itemsHtmlHeightBefore;
 
         window.scrollTo(0, (lastScrollPos + itemsHtmlHeightDiff));
       }
