@@ -94,11 +94,9 @@ def fetch_feed_items(feed):
 
     try:
         feed_parsed = feedparser.parse(feed["url"])
+        item_added = int(time.mktime((datetime.datetime.now()).timetuple()))
 
         for entry in feed_parsed.entries:
-            item_id = hashlib.md5(entry.link.encode()).hexdigest()
-            item_added = int(time.mktime((datetime.datetime.now()).timetuple()))
-
             try:
                 item_title = entry.title
             except AttributeError:
@@ -114,8 +112,8 @@ def fetch_feed_items(feed):
             except (TypeError, AttributeError):
                 item_published = item_added
 
-            new_item = {
-                "id": item_id,
+            new_items.append({
+                "id": hashlib.md5(entry.link.encode()).hexdigest(),
                 "feed": feed["id"],
                 "group": feed["group"],
                 "link": entry.link,
@@ -123,9 +121,7 @@ def fetch_feed_items(feed):
                 "description": item_description,
                 "published": item_published,
                 "added": item_added
-            }
-
-            new_items.append(new_item)
+            })
     except:
         print(f"Error fetching '{feed['url']}'")
          
