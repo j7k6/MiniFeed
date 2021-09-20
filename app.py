@@ -96,34 +96,36 @@ def fetch_feed_items(feed):
         feed_parsed = feedparser.parse(feed["url"])
 
         for entry in feed_parsed.entries:
+            item_id = hashlib.md5(entry.link.encode()).hexdigest()
+            item_added = int(time.mktime((datetime.datetime.now()).timetuple()))
+
             try:
-                item_id = hashlib.md5(entry.link.encode()).hexdigest()
-                item_added = int(time.mktime((datetime.datetime.now()).timetuple()))
+                item_title = entry.title
+            except AttributeError:
+                continue
 
-                try:
-                    item_published = int(time.strftime("%s", entry.published_parsed))
-                except TypeError:
-                    item_published = item_added
+            try:
+                item_description = re.sub("<[^<]+?>", "", entry.description)
+            except AttributeError:
+                item_description = item_title
 
-                try:
-                    item_description = re.sub("<[^<]+?>", "", entry.description)
-                except AttributeError:
-                    item_description = entry.title
+            try:
+                item_published = int(time.strftime("%s", entry.published_parsed))
+            except (TypeError, AttributeError):
+                item_published = item_added
 
-                new_item = {
-                    "id": item_id,
-                    "feed": feed["id"],
-                    "group": feed["group"],
-                    "link": entry.link,
-                    "title": entry.title,
-                    "description": item_description,
-                    "published": item_published,
-                    "added": item_added
-                }
+            new_item = {
+                "id": item_id,
+                "feed": feed["id"],
+                "group": feed["group"],
+                "link": entry.link,
+                "title": item_title,
+                "description": item_description,
+                "published": item_published,
+                "added": item_added
+            }
 
-                new_items.append(new_item)
-            except:
-                pass
+            new_items.append(new_item)
     except:
         print(f"Error fetching '{feed['url']}'")
          
