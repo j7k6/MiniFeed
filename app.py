@@ -12,13 +12,22 @@ import datetime
 import favicon
 import feedparser
 import hashlib
+import logging
 import os
 import re
 import requests
+import sys
 import time
 import tldextract
 import yaml
 
+
+if sys.stdout.isatty():
+    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
+else:
+    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
+
+app = Flask(__name__)
 
 num_procs = int(os.getenv("NUM_PROCS", os.cpu_count()-1))
 update_interval = int(os.getenv("UPDATE_INTERVAL", 60))
@@ -27,8 +36,6 @@ server_port = int(os.getenv("SERVER_PORT", 5000))
 groups = []
 feeds = []
 items = []
-
-app = Flask(__name__)
 
 
 def fetch_favicon(url):
@@ -66,8 +73,7 @@ def fetch_favicon(url):
             img = Image.open(BytesIO(req.content))
 
             with BytesIO() as output:
-                img = img.resize((16, 16), Image.ANTIALIAS)
-                img.save(output, format="PNG")
+                img.resize((16, 16), Image.ANTIALIAS).save(output, format="PNG")
                 favicon_base64 = base64.b64encode(output.getvalue()).decode()
     except:
         pass
@@ -84,7 +90,7 @@ def fetch_feed_info(feed):
 
         return feed
     except:
-        print(f"Error fetching '{feed['url']}'")
+        logging.error(f"Error fetching '{feed['url']}'")
 
         return {}
 
@@ -123,14 +129,14 @@ def fetch_feed_items(feed):
                 "added": item_added
             })
     except:
-        print(f"Error fetching '{feed['url']}'")
+        loggin.error(f"Error fetching '{feed['url']}'")
          
     return new_items
 
 
 def update_task():
     while True:
-        print("Updating Feeds...")
+        logging.info("Updating Feeds...")
 
         old_items_count = len(items)
         new_items = [new_item for new_items_list in Pool(processes=num_procs).map(fetch_feed_items, feeds) for new_item in new_items_list]
@@ -142,7 +148,7 @@ def update_task():
         new_items_count = len(items) - old_items_count
 
         if new_items_count > 0:
-            print(f"[+{new_items_count}/{len(items)}]")
+            logging.info(f"[+{new_items_count}/{len(items)}]")
 
         time.sleep(update_interval)
 
@@ -152,32 +158,29 @@ if __name__ == "__main__":
         try:
             feeds_raw = yaml.safe_load(stream)["feeds"]
         except yaml.YAMLError as e:
-            print(e)
-
-    feeds_pre = []
+            logging.fatal(e)
 
     for group_id in feeds_raw:
         groups.append(group_id)
 
         for feed_url in feeds_raw[group_id]:
-            feed_id = hashlib.md5(feed_url.encode()).hexdigest()
-
-            feeds_pre.append({
-                "id": feed_id,
+            feeds.append({
+                "id": hashlib.md5(feed_url.encode()).hexdigest(),
                 "group": group_id,
                 "url": feed_url
             })
         
-    print("Loading Feeds...")
+    logging.info("Loading Feeds...")
 
-    feeds = list(filter(lambda feed: feed != {}, Pool(processes=num_procs).map(fetch_feed_info, feeds_pre)))
+    feeds = list(filter(lambda feed: feed != {}, Pool(processes=num_procs).map(fetch_feed_info, feeds)))
 
-    print(f"[{len(feeds)}]")
+    logging.info(f"[{len(feeds)}]")
      
     Thread(target=update_task).start()
 
     while len(items) == 0:
         time.sleep(1)
+
 
     @app.route("/")
     def index():
@@ -220,5 +223,7 @@ if __name__ == "__main__":
 
         return jsonify(get_items[:50])
 
-    print("Ready!")
+
+    logging.info("Ready!")
+
     serve(app, port=server_port)
