@@ -78,17 +78,9 @@ def fetch_favicon(url):
 def fetch_feed_info(feed):
     try:
         feed_parsed = feedparser.parse(feed["url"])
-        feed_title = feed_parsed.feed.title
-        favicon_url = feed_parsed.feed.link
 
-        if favicon_url == "":
-            favicon_url = feed["url"]
-
-        try:
-            feed["title"] = feed_title
-            feed["favicon"] = fetch_favicon(favicon_url)
-        except Exception as e:
-            pass
+        feed["title"] = feed_parsed.feed.title
+        feed["favicon"] = fetch_favicon(feed_parsed.feed.link or feed["url"])
 
         return feed
     except Exception as e:
@@ -108,19 +100,8 @@ def fetch_feed_items(feed):
                 try:
                     item_id = hashlib.md5(entry.link.encode()).hexdigest()
                     item_added = int(time.mktime((datetime.datetime.now()).timetuple()))
-
-                    try:
-                        item_published = int(time.strftime('%s', entry.published_parsed))
-                    except Exception as e:
-                        item_published = item_added
-
-                    try:
-                        item_description = re.sub("<[^<]+?>", "", entry.description)
-                    except AttributeError as e:
-                        try:
-                            item_description = entry.title
-                        except AttributeError as e:
-                            item_description = ""
+                    item_published = int(time.strftime('%s', entry.published_parsed)) or item_added
+                    item_description = re.sub("<[^<]+?>", "", entry.description) or entry.title or ""
 
                     new_item = {
                         "id": item_id,
@@ -218,13 +199,14 @@ if __name__ == "__main__":
         after = request.args.get("after", default=None)
         
         get_items = list(filter(lambda item: item["added"] > int(since), items))
-        get_items = sorted(get_items, key=lambda k: k["added"], reverse=True)
 
-        if feed_id:
+        if feed_id is not None:
             get_items = list(filter(lambda item: item["feed"] == feed_id, get_items))
 
-        if group_id:
+        if group_id is not None:
             get_items = list(filter(lambda item: item["group"] == group_id, get_items))
+
+        get_items.sort(key=lambda k: k["added"], reverse=True)
 
         if after is not None:
             try:
