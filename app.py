@@ -99,7 +99,11 @@ def fetch_feed_items(feed):
             try:
                 item_id = hashlib.md5(entry.link.encode()).hexdigest()
                 item_added = int(time.mktime((datetime.datetime.now()).timetuple()))
-                item_published = int(time.strftime("%s", entry.published_parsed)) or item_added
+
+                try:
+                    item_published = int(time.strftime("%s", entry.published_parsed))
+                except TypeError:
+                    item_published = item_added
 
                 try:
                     item_description = re.sub("<[^<]+?>", "", entry.description)
@@ -118,7 +122,7 @@ def fetch_feed_items(feed):
                 }
 
                 new_items.append(new_item)
-            except AttributeError:
+            except:
                 pass
     except:
         print(f"Error fetching '{feed['url']}'")
