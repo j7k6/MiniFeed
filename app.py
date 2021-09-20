@@ -69,7 +69,7 @@ def fetch_favicon(url):
                 img = img.resize((16, 16), Image.ANTIALIAS)
                 img.save(output, format="PNG")
                 favicon_base64 = base64.b64encode(output.getvalue()).decode()
-    except Exception as e:
+    except:
         pass
 
     return favicon_base64
@@ -83,7 +83,7 @@ def fetch_feed_info(feed):
         feed["favicon"] = fetch_favicon(feed_parsed.feed.link or feed["url"])
 
         return feed
-    except Exception as e:
+    except:
         print(f"Error fetching '{feed['url']}'")
 
         return {}
@@ -92,34 +92,36 @@ def fetch_feed_info(feed):
 def fetch_feed_items(feed):
     new_items = []
 
-    if feed != {}:
-        try:
-            feed_parsed = feedparser.parse(feed["url"])
+    try:
+        feed_parsed = feedparser.parse(feed["url"])
 
-            for entry in feed_parsed.entries:
+        for entry in feed_parsed.entries:
+            try:
+                item_id = hashlib.md5(entry.link.encode()).hexdigest()
+                item_added = int(time.mktime((datetime.datetime.now()).timetuple()))
+                item_published = int(time.strftime("%s", entry.published_parsed)) or item_added
+
                 try:
-                    item_id = hashlib.md5(entry.link.encode()).hexdigest()
-                    item_added = int(time.mktime((datetime.datetime.now()).timetuple()))
-                    item_published = int(time.strftime('%s', entry.published_parsed)) or item_added
-                    item_description = re.sub("<[^<]+?>", "", entry.description) or entry.title or ""
+                    item_description = re.sub("<[^<]+?>", "", entry.description)
+                except AttributeError:
+                    item_description = entry.title
 
-                    new_item = {
-                        "id": item_id,
-                        "feed": feed["id"],
-                        "group": feed["group"],
-                        "link": entry.link,
-                        "title": entry.title,
-                        "description": item_description,
-                        "published": item_published,
-                        "added": item_added
-                    }
+                new_item = {
+                    "id": item_id,
+                    "feed": feed["id"],
+                    "group": feed["group"],
+                    "link": entry.link,
+                    "title": entry.title,
+                    "description": item_description,
+                    "published": item_published,
+                    "added": item_added
+                }
 
-                    new_items.append(new_item)
-                except Exception as e:
-                    pass
-
-        except Exception as e:
-            print(f"Error fetching '{feed['url']}'")
+                new_items.append(new_item)
+            except AttributeError:
+                pass
+    except:
+        print(f"Error fetching '{feed['url']}'")
          
     return new_items
 
