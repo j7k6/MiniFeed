@@ -132,12 +132,12 @@ def update_task():
     while True:
         print("Updating Feeds...")
 
-        new_items = Pool(processes=num_procs).map(fetch_feed_items, feeds)
         old_items_count = len(items)
+        new_items = [new_item for new_items_list in Pool(processes=num_procs).map(fetch_feed_items, feeds) for new_item in new_items_list]
 
-        for item in [item for item_list in new_items for item in item_list]:
-            if not item["id"] in [i["id"] for i in items]:
-                items.append(item)
+        for new_item in new_items:
+            if not new_item["id"] in [item["id"] for item in items]:
+                items.append(new_item)
 
         new_items_count = len(items) - old_items_count
 
