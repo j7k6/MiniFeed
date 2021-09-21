@@ -20,16 +20,17 @@ import time
 import yaml
 
 
-if sys.stdout.isatty():
-    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
-else:
-    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
-
 app = Flask(__name__)
 
 num_procs = int(os.getenv("NUM_PROCS", os.cpu_count()-1))
 update_interval = int(os.getenv("UPDATE_INTERVAL", 60))
 server_port = int(os.getenv("SERVER_PORT", 5000))
+debug = bool(os.getenv("DEBUG", 1))
+
+if debug:
+    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
+else:
+    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
 
 groups = []
 feeds = []
@@ -37,19 +38,18 @@ items = []
 
 
 def fetch_favicon(feed_link):
+    favicon_url = None
+    favicon_base64 = None
+
     feed_url = "/".join(feed_link.split("/")[:3])
-    favicon_base64 = ""
     headers = {"DNT": "1", "User-Agent": "Mozilla/5.0"}
     cookies = {"trackingChoice": "true", "choiceVersion": "1"}
 
     try:
-        favicons = favicon.get(feed_link, headers=headers, cookies=cookies)
+        favicons = favicon.get(feed_url, headers=headers, cookies=cookies)
 
         if len(favicons) > 0:
-            for icon in favicons:
-                if icon.width == icon.height:
-                    favicon_url = icon.url
-                    break
+            favicon_url = list(filter(lambda icon: icon.width == icon.height, favicons))[0].url
 
         favicon_url = favicon_url or f"{feed_url}/favicon.ico"
 
@@ -59,8 +59,7 @@ def fetch_favicon(feed_link):
         with BytesIO() as output:
             img.resize((16, 16), Image.ANTIALIAS).save(output, format="PNG")
             favicon_base64 = base64.b64encode(output.getvalue()).decode()
-    except Exception as e:
-        print(e)
+    except:
         pass
 
     return favicon_base64
