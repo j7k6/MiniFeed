@@ -5,7 +5,6 @@ from flask import Flask, jsonify, request, send_from_directory
 from io import BytesIO
 from multiprocessing import Pool
 from threading import Thread
-from urllib.parse import urlparse
 from waitress import serve
 import base64
 import datetime
@@ -18,7 +17,6 @@ import re
 import requests
 import sys
 import time
-import tldextract
 import yaml
 
 
@@ -38,23 +36,14 @@ feeds = []
 items = []
 
 
-def fetch_favicon(url):
-    favicon_url = None
+def fetch_favicon(feed_link):
+    feed_url = "/".join(feed_link.split("/")[:3])
     favicon_base64 = ""
     headers = {"DNT": "1", "User-Agent": "Mozilla/5.0"}
     cookies = {"trackingChoice": "true", "choiceVersion": "1"}
 
     try:
-        uri = urlparse(url)
-        uri_extracted = tldextract.extract(url)
-
-        favicons = favicon.get(url)
-
-        if len(favicons) == 0:
-            favicons = favicon.get(f"{uri.scheme}://{uri.netloc}")
-
-        if len(favicons) == 0:
-            favicons = favicon.get(f"{uri.scheme}://{uri_extracted.domain}.{uri_extracted.suffix}")
+        favicons = favicon.get(feed_link, headers=headers, cookies=cookies)
 
         if len(favicons) > 0:
             for icon in favicons:
@@ -62,22 +51,16 @@ def fetch_favicon(url):
                     favicon_url = icon.url
                     break
 
-        if favicon_url is None:
-            fallback_urls = [f"{uri.scheme}://{uri.netloc}/favicon.ico", f"{uri.scheme}://{uri_extracted.domain}.{uri_extracted.suffix}/favicon.ico"]
+        favicon_url = favicon_url or f"{feed_url}/favicon.ico"
 
-            for f in fallback_urls:
-                if requests.head(f, headers=headers, cookies=cookies, allow_redirects=True).status_code == 200:
-                    favicon_url = f
-                    break
+        req = requests.get(favicon_url, headers=headers, cookies=cookies, allow_redirects=True)
+        img = Image.open(BytesIO(req.content))
 
-        if favicon_url is not None:
-            req = requests.get(favicon_url, headers=headers, cookies=cookies, allow_redirects=True)
-            img = Image.open(BytesIO(req.content))
-
-            with BytesIO() as output:
-                img.resize((16, 16), Image.ANTIALIAS).save(output, format="PNG")
-                favicon_base64 = base64.b64encode(output.getvalue()).decode()
-    except:
+        with BytesIO() as output:
+            img.resize((16, 16), Image.ANTIALIAS).save(output, format="PNG")
+            favicon_base64 = base64.b64encode(output.getvalue()).decode()
+    except Exception as e:
+        print(e)
         pass
 
     return favicon_base64
