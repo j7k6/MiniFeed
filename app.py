@@ -39,10 +39,10 @@ items = []
 
 def fetch_favicon(feed_link):
     favicon_url = None
-    favicon_base64 = None
+    favicon_base64 = ""
 
     feed_url = "/".join(feed_link.split("/")[:3])
-    headers = {"DNT": "1", "User-Agent": "Mozilla/5.0"}
+    headers = {"DNT": "1", "User-Agent": "\ Mozilla/5.0"}
     cookies = {"trackingChoice": "true", "choiceVersion": "1"}
 
     try:
