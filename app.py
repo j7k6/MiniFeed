@@ -41,6 +41,8 @@ items = []
 def fetch_favicon(url):
     favicon_url = None
     favicon_base64 = ""
+    headers = {"DNT": "1", "User-Agent": "Mozilla/5.0"}
+    cookies = {"trackingChoice": "true", "choiceVersion": "1"}
 
     try:
         uri = urlparse(url)
@@ -64,12 +66,12 @@ def fetch_favicon(url):
             fallback_urls = [f"{uri.scheme}://{uri.netloc}/favicon.ico", f"{uri.scheme}://{uri_extracted.domain}.{uri_extracted.suffix}/favicon.ico"]
 
             for f in fallback_urls:
-                if requests.head(f, allow_redirects=True).status_code == 200:
+                if requests.head(f, headers=headers, cookies=cookies, allow_redirects=True).status_code == 200:
                     favicon_url = f
                     break
 
         if favicon_url is not None:
-            req = requests.get(favicon_url, allow_redirects=True)
+            req = requests.get(favicon_url, headers=headers, cookies=cookies, allow_redirects=True)
             img = Image.open(BytesIO(req.content))
 
             with BytesIO() as output:
@@ -129,7 +131,7 @@ def fetch_feed_items(feed):
                 "added": item_added
             })
     except:
-        loggin.error(f"Error fetching '{feed['url']}'")
+        logging.error(f"Error fetching '{feed['url']}'")
          
     return new_items
 
