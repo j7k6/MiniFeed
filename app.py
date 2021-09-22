@@ -25,12 +25,10 @@ app = Flask(__name__)
 num_procs = int(os.getenv("NUM_PROCS", os.cpu_count()-1))
 update_interval = int(os.getenv("UPDATE_INTERVAL", 60))
 server_port = int(os.getenv("SERVER_PORT", 5000))
-debug = bool(os.getenv("DEBUG", 1))
+debug = bool(int(os.getenv("DEBUG", 1)))
 
-if debug:
-    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
-else:
-    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
+loglevel = logging.DEBUG if debug else logging.INFO
+logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=loglevel)
 
 groups = []
 feeds = []
