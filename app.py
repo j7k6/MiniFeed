@@ -27,9 +27,6 @@ update_interval = int(os.getenv("UPDATE_INTERVAL", 60))
 server_port = int(os.getenv("SERVER_PORT", 5000))
 debug = bool(int(os.getenv("DEBUG", 0)))
 
-headers = {"DNT": "1", "User-Agent": "Mozilla/5.0"}
-cookies = {"trackingChoice": "true", "choiceVersion": "1"}
-
 groups = []
 feeds = []
 items = []
@@ -40,17 +37,17 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=loglev
 
 def fetch_favicon(feed_link):
     favicon_url = None
-    favicon_base64 = ""
+    favicon_base64 = None
     feed_url = "/".join(feed_link.split("/")[:3])
     fallback_url = f"{feed_url}/favicon.ico"
 
     for src in list(dict.fromkeys([feed_link, feed_url, fallback_url])):
         try:
-            favicons = favicon.get(src, headers=headers, cookies=cookies)
+            favicons = favicon.get(src)
 
             if len(favicons) > 0:
                 favicon_url = list(filter(lambda icon: icon.width == icon.height, favicons))[0].url
-                req = requests.get(favicon_url, headers=headers, cookies=cookies, allow_redirects=True)
+                req = requests.get(favicon_url, allow_redirects=True)
                 img = Image.open(BytesIO(req.content))
 
                 with BytesIO() as output:
@@ -66,10 +63,12 @@ def fetch_favicon(feed_link):
 def fetch_feed_info(feed):
     try:
         feed_parsed = feedparser.parse(feed["url"])
+
         feed["title"] = feed_parsed.feed.title
-        feed["favicon"] = fetch_favicon(feed_parsed.feed.link or feed["url"])
+        feed["favicon"] = fetch_favicon(feed_parsed.feed.link or feed["url"]) or ""
     except:
         logging.error(f"Error fetching '{feed['url']}'")
+    
         feed = {}
     finally:
         return feed
@@ -151,29 +150,36 @@ if __name__ == "__main__":
             })
         
     logging.info("Loading Feeds...")
+    
     feeds = list(filter(lambda feed: feed != {}, Pool(processes=num_procs).map(fetch_feed_info, feeds)))
 
     logging.info(f"[{len(feeds)}]")
+
     Thread(target=update_task).start()
 
     while len(items) == 0:
         time.sleep(1)
 
+
     @app.route("/")
     def index():
         return app.send_static_file("index.html")
+
 
     @app.route("/assets/<path:path>")
     def serve_static(path):
         return send_from_directory("static/assets", path)
 
+
     @app.route("/api/getFeeds", methods=["GET"])
     def app_get_feeds():
         return jsonify(feeds)
 
+
     @app.route("/api/getGroups", methods=["GET"])
     def app_get_groups():
         return jsonify(groups)
+
 
     @app.route("/api/getItems", methods=["GET"])
     def api_get_items():
@@ -200,5 +206,7 @@ if __name__ == "__main__":
 
         return jsonify(get_items[:50])
 
+
     logging.info("Ready!")
+
     serve(app, port=server_port)
