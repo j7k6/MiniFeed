@@ -39,23 +39,18 @@ items = []
 def fetch_favicon(feed_link):
     favicon_url = None
     favicon_base64 = ""
-
-    feed_url = "/".join(feed_link.split("/")[:3])
-    headers = {"DNT": "1", "User-Agent": "\ Mozilla/5.0"}
+    headers = {"DNT": "1", "User-Agent": "Mozilla/5.0"}
     cookies = {"trackingChoice": "true", "choiceVersion": "1"}
 
     try:
-        favicons = favicon.get(feed_link, headers=headers, cookies=cookies)
+        feed_url = "/".join(feed_link.split("/")[:3])
 
-        if len(favicons) > 0:
-            favicon_url = list(filter(lambda icon: icon.width == icon.height, favicons))[0].url
-        else:
-            favicons = favicon.get(feed_url, headers=headers, cookies=cookies)
+        for src in [feed_link, feed_url, f"{feed_url}/favicon.ico"]:
+            favicons = favicon.get(src, headers=headers, cookies=cookies)
 
             if len(favicons) > 0:
                 favicon_url = list(filter(lambda icon: icon.width == icon.height, favicons))[0].url
-
-        favicon_url = favicon_url or f"{feed_url}/favicon.ico"
+                break
 
         req = requests.get(favicon_url, headers=headers, cookies=cookies, allow_redirects=True)
         img = Image.open(BytesIO(req.content))
@@ -65,22 +60,21 @@ def fetch_favicon(feed_link):
             favicon_base64 = base64.b64encode(output.getvalue()).decode()
     except:
         pass
-
-    return favicon_base64
+    finally:
+        return favicon_base64
 
 
 def fetch_feed_info(feed):
     try:
         feed_parsed = feedparser.parse(feed["url"])
-
         feed["title"] = feed_parsed.feed.title
         feed["favicon"] = fetch_favicon(feed_parsed.feed.link or feed["url"])
-
-        return feed
     except:
-        logging.error(f"Error fetching '{feed['url']}'")
+        feed = {}
 
-        return {}
+        logging.error(f"Error fetching '{feed['url']}'")
+    finally:
+        return feed
 
 
 def fetch_feed_items(feed):
@@ -118,8 +112,8 @@ def fetch_feed_items(feed):
             })
     except:
         logging.error(f"Error fetching '{feed['url']}'")
-         
-    return new_items
+    finally:
+        return new_items
 
 
 def update_task():
