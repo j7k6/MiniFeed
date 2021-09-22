@@ -13,7 +13,6 @@ import feedparser
 import hashlib
 import logging
 import os
-import pprint
 import re
 import requests
 import sys
@@ -28,40 +27,40 @@ update_interval = int(os.getenv("UPDATE_INTERVAL", 60))
 server_port = int(os.getenv("SERVER_PORT", 5000))
 debug = bool(int(os.getenv("DEBUG", 0)))
 
-loglevel = logging.DEBUG if debug else logging.INFO
-logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=loglevel)
+headers = {"DNT": "1", "User-Agent": "Mozilla/5.0"}
+cookies = {"trackingChoice": "true", "choiceVersion": "1"}
 
 groups = []
 feeds = []
 items = []
 
+loglevel = logging.DEBUG if debug else logging.INFO
+logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=loglevel)
+
 
 def fetch_favicon(feed_link):
     favicon_url = None
     favicon_base64 = ""
-    headers = {"DNT": "1", "User-Agent": "Mozilla/5.0"}
-    cookies = {"trackingChoice": "true", "choiceVersion": "1"}
+    feed_url = "/".join(feed_link.split("/")[:3])
+    fallback_url = f"{feed_url}/favicon.ico"
 
-    try:
-        feed_url = "/".join(feed_link.split("/")[:3])
-
-        for src in [feed_link, feed_url, f"{feed_url}/favicon.ico"]:
+    for src in list(dict.fromkeys([feed_link, feed_url, fallback_url])):
+        try:
             favicons = favicon.get(src, headers=headers, cookies=cookies)
 
             if len(favicons) > 0:
                 favicon_url = list(filter(lambda icon: icon.width == icon.height, favicons))[0].url
-                break
+                req = requests.get(favicon_url, headers=headers, cookies=cookies, allow_redirects=True)
+                img = Image.open(BytesIO(req.content))
 
-        req = requests.get(favicon_url, headers=headers, cookies=cookies, allow_redirects=True)
-        img = Image.open(BytesIO(req.content))
+                with BytesIO() as output:
+                    img.resize((16, 16), Image.ANTIALIAS).save(output, format="PNG")
+                    favicon_base64 = base64.b64encode(output.getvalue()).decode()
+                    break
+        except:
+            continue
 
-        with BytesIO() as output:
-            img.resize((16, 16), Image.ANTIALIAS).save(output, format="PNG")
-            favicon_base64 = base64.b64encode(output.getvalue()).decode()
-    except:
-        pass
-    finally:
-        return favicon_base64
+    return favicon_base64
 
 
 def fetch_feed_info(feed):
@@ -70,9 +69,8 @@ def fetch_feed_info(feed):
         feed["title"] = feed_parsed.feed.title
         feed["favicon"] = fetch_favicon(feed_parsed.feed.link or feed["url"])
     except:
-        feed = {}
-
         logging.error(f"Error fetching '{feed['url']}'")
+        feed = {}
     finally:
         return feed
 
@@ -153,16 +151,13 @@ if __name__ == "__main__":
             })
         
     logging.info("Loading Feeds...")
-
     feeds = list(filter(lambda feed: feed != {}, Pool(processes=num_procs).map(fetch_feed_info, feeds)))
 
     logging.info(f"[{len(feeds)}]")
-     
     Thread(target=update_task).start()
 
     while len(items) == 0:
         time.sleep(1)
-
 
     @app.route("/")
     def index():
@@ -200,12 +195,10 @@ if __name__ == "__main__":
         if after is not None:
             try:
                 get_items = get_items[[x["id"] for x in get_items].index(after)+1:]
-            except ValueError as e:
+            except ValueError:
                 get_items = []
 
         return jsonify(get_items[:50])
 
-
     logging.info("Ready!")
-
     serve(app, port=server_port)
