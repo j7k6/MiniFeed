@@ -20,28 +20,29 @@ import time
 import yaml
 
 
-app = Flask(__name__)
+NUM_PROCS = int(os.getenv("NUM_PROCS", os.cpu_count()-1))
+UPDATE_INTERVAL = int(os.getenv("UPDATE_INTERVAL", 60))
+SERVER_PORT = int(os.getenv("SERVER_PORT", 5000))
+DEBUG = bool(int(os.getenv("DEBUG", 0)))
+ITEM_LIMIT = int(os.getenv("ITEM_LIMIT", 50))
 
-num_procs = int(os.getenv("NUM_PROCS", os.cpu_count()-1))
-update_interval = int(os.getenv("UPDATE_INTERVAL", 60))
-server_port = int(os.getenv("SERVER_PORT", 5000))
-debug = bool(int(os.getenv("DEBUG", 0)))
+loglevel = logging.DEBUG if DEBUG else logging.INFO
+logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=loglevel)
 
 groups = []
 feeds = []
 items = []
 
-loglevel = logging.DEBUG if debug else logging.INFO
-logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=loglevel)
+app = Flask(__name__)
 
 
 def fetch_favicon(feed_link):
     favicon_url = None
     favicon_base64 = None
-    feed_url = "/".join(feed_link.split("/")[:3])
-    fallback_url = f"{feed_url}/favicon.ico"
+    feed_link_stripped = "/".join(feed_link.split("/")[:3])
+    fallback_url = f"{feed_link_stripped}/favicon.ico"
 
-    for src in list(dict.fromkeys([feed_link, feed_url, fallback_url])):
+    for src in list(dict.fromkeys([feed_link, feed_link_stripped, fallback_url])):
         try:
             favicons = favicon.get(src)
 
@@ -113,12 +114,32 @@ def fetch_feed_items(feed):
         return new_items
 
 
+def get_items(feed_id=None, group_id=None, after=None, since=0, limit=50):
+    items_list = list(filter(lambda item: item["added"] > int(since), items))
+
+    if feed_id is not None:
+        items_list = list(filter(lambda item: item["feed"] == feed_id, items_list))
+
+    if group_id is not None:
+        items_list = list(filter(lambda item: item["group"] == group_id, items_list))
+
+    items_list.sort(key=lambda k: k["added"], reverse=True)
+
+    if after is not None:
+        try:
+            items_list = items_list[[x["id"] for x in items_list].index(after)+1:]
+        except ValueError:
+            items_list = []
+
+    return items_list[:limit]
+
+
 def update_task():
     while True:
         logging.info("Updating Feeds...")
 
         old_items_count = len(items)
-        new_items = [new_item for new_items_list in Pool(processes=num_procs).map(fetch_feed_items, feeds) for new_item in new_items_list]
+        new_items = [new_item for new_items_list in Pool(processes=NUM_PROCS).map(fetch_feed_items, feeds) for new_item in new_items_list]
 
         for new_item in new_items:
             if not new_item["id"] in [item["id"] for item in items]:
@@ -129,7 +150,7 @@ def update_task():
         if new_items_count > 0:
             logging.info(f"[+{new_items_count}/{len(items)}]")
 
-        time.sleep(update_interval)
+        time.sleep(UPDATE_INTERVAL)
 
 
 if __name__ == "__main__":
@@ -151,7 +172,7 @@ if __name__ == "__main__":
         
     logging.info("Loading Feeds...")
     
-    feeds = list(filter(lambda feed: feed != {}, Pool(processes=num_procs).map(fetch_feed_info, feeds)))
+    feeds = list(filter(lambda feed: feed != {}, Pool(processes=NUM_PROCS).map(fetch_feed_info, feeds)))
 
     logging.info(f"[{len(feeds)}]")
 
@@ -185,28 +206,12 @@ if __name__ == "__main__":
     def api_get_items():
         feed_id = request.args.get("feed_id", default=None)
         group_id = request.args.get("group_id", default=None)
-        since = request.args.get("since", default=0)
         after = request.args.get("after", default=None)
-        
-        get_items = list(filter(lambda item: item["added"] > int(since), items))
+        since = request.args.get("since", default=0)
 
-        if feed_id is not None:
-            get_items = list(filter(lambda item: item["feed"] == feed_id, get_items))
-
-        if group_id is not None:
-            get_items = list(filter(lambda item: item["group"] == group_id, get_items))
-
-        get_items.sort(key=lambda k: k["added"], reverse=True)
-
-        if after is not None:
-            try:
-                get_items = get_items[[x["id"] for x in get_items].index(after)+1:]
-            except ValueError:
-                get_items = []
-
-        return jsonify(get_items[:50])
+        return jsonify(get_items(feed_id=feed_id, group_id=group_id, after=after, since=since, limit=ITEM_LIMIT))
 
 
     logging.info("Ready!")
 
-    serve(app, port=server_port)
+    serve(app, port=SERVER_PORT)
